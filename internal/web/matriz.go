@@ -35,6 +35,8 @@ type Celula struct {
 	UltimaAtividade   time.Time // mudança mais recente de issue ou PR da célula
 	Parada            bool      // sem atividade há mais que stale_after, com issues em andamento
 	NaoVistas         int       // eventos desde a última vez que o dono marcou "visto"
+
+	Link string // endereço da página do escopo (/p/<produto>/<escopo>)
 }
 
 // aClassificar é a chave interna da coluna "a classificar".
@@ -111,7 +113,7 @@ func montarMatriz(produtos []config.Produto, d dadosPainel, staleAfter time.Dura
 	}
 
 	for _, p := range produtos {
-		linha := LinhaMatriz{Produto: p, AClassificar: Celula{Existe: true}}
+		linha := LinhaMatriz{Produto: p}
 		doProduto := map[string]bool{}
 		for _, e := range p.Escopos {
 			doProduto[e.Nome] = true
@@ -123,6 +125,7 @@ func montarMatriz(produtos []config.Produto, d dadosPainel, staleAfter time.Dura
 				c = *v
 			}
 			c.Existe = doProduto[nome]
+			c.Link = linkEscopo(p.Slug, nome)
 			linha.Celulas = append(linha.Celulas, c)
 		}
 
@@ -134,6 +137,8 @@ func montarMatriz(produtos []config.Produto, d dadosPainel, staleAfter time.Dura
 				somarCelula(&linha.AClassificar, *v)
 			}
 		}
+		linha.AClassificar.Existe = true
+		linha.AClassificar.Link = linkEscopo(p.Slug, aClassificar)
 
 		for i := range linha.Celulas {
 			marcarParada(&linha.Celulas[i], staleAfter, agora)
@@ -142,6 +147,14 @@ func montarMatriz(produtos []config.Produto, d dadosPainel, staleAfter time.Dura
 		m.Linhas = append(m.Linhas, linha)
 	}
 	return m
+}
+
+// linkEscopo monta o endereço da página de um escopo ("" = a classificar).
+func linkEscopo(produto, nome string) string {
+	if nome == aClassificar {
+		nome = config.EscopoAClassificar
+	}
+	return "/p/" + produto + "/" + nome
 }
 
 // escoposDosPRsPorIssue devolve, para cada issue, os escopos dos PRs vinculados.

@@ -4,9 +4,10 @@ Painel local e **somente leitura** que mostra o estado real dos produtos a parti
 Linear, do GitHub e dos Markdown do repo central. Veja o [CONTEXT.md](CONTEXT.md) para
 a visão completa e as regras do projeto.
 
-> Status: **Fase 3**. O painel coleta issues do Linear e PRs do GitHub, calcula o
+> Status: **Fase 4**. O painel coleta issues do Linear e PRs do GitHub, calcula o
 > risco de cada PR, vincula issues a PRs, registra o que mudou a cada ciclo e mostra
-> a matriz, a fila de review e a tela "o que mudou".
+> a matriz, a fila de review, a tela "o que mudou" e as páginas de escopo e de
+> decisões, com o Markdown do repo central.
 
 ## Telas
 
@@ -21,6 +22,48 @@ a visão completa e as regras do projeto.
   menor e, no mesmo risco, do mais antigo para o mais novo. Cada PR mostra os
   motivos do risco e as issues vinculadas com os critérios de aceite
   (checkboxes `- [ ]` da descrição da issue).
+- **`/p/<produto>/<escopo>` Escopo**: aberta ao clicar numa célula da matriz. Mostra
+  as issues agrupadas por estado, os PRs abertos com risco e motivos, os últimos 20
+  eventos e, ao lado, a seção `## <escopo>` do `PRODUCT.md`. A coluna "a classificar"
+  é `/p/<produto>/a-classificar`.
+- **`/p/<produto>/decisoes` Decisões**: o `DECISIONS.md` do produto, renderizado.
+
+## Repo central (PRODUCT.md e DECISIONS.md)
+
+O `central_repo_path` do `config.yaml` aponta para uma pasta com este formato:
+
+```
+painel-central/
+├── config.yaml
+└── produtos/
+    └── <slug>/
+        ├── PRODUCT.md     uma seção "## <escopo>" por escopo
+        └── DECISIONS.md   texto livre
+```
+
+Exemplo de `produtos/produto-x/PRODUCT.md` para um produto com os escopos `api` e `front`:
+
+```md
+# Produto X
+
+Texto antes da primeira seção não aparece em nenhum escopo.
+
+## api
+
+O que a API já faz:
+- Login com token
+- Cadastro de usuários
+
+## front
+
+Telas prontas: login e cadastro. Falta a tela de perfil.
+```
+
+O título da seção é comparado sem diferenciar maiúsculas (`## API` vale para o escopo
+`api`). A seção vai até o próximo `## ` (títulos dentro de blocos de código não contam).
+Os arquivos são lidos a cada abertura da página, então basta salvar e recarregar.
+Arquivo ou seção ausente vira um aviso na página, não um erro. HTML escrito direto no
+Markdown não é renderizado, por segurança.
 
 ## Regras
 

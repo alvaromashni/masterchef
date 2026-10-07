@@ -13,6 +13,7 @@
       <strong>{{.PR.Title}}</strong>
     </div>
     <div class="item-meta">
+      <a href="{{linkEscopo .PR.ProductSlug .PR.Scope}}">{{.PR.ProductSlug}} · {{escopo .PR.Scope}}</a> ·
       aberto {{haQuanto .PR.CreatedAt}} · +{{.PR.Additions}} −{{.PR.Deletions}} · branch <code>{{.PR.Branch}}</code>
     </div>
     {{if .PR.RiskReasons}}
