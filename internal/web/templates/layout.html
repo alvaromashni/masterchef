@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{.Titulo}} · Painel</title>
+  <title>{{.Titulo}} | Painel</title>
   <link rel="stylesheet" href="/static/painel.css">
   <!-- htmx via CDN: dá interatividade (ex.: botão "marcar como visto") sem build de front. -->
   <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
@@ -11,25 +11,37 @@
 <body>
   <header class="topo">
     <a class="marca" href="/">Painel</a>
-    <nav>
-      <a href="/">Matriz</a>
-      <a href="/mudancas">O que mudou</a>
-      <a href="/prs">Fila de review</a>
+    <nav aria-label="Telas">
+      <a href="/"{{if eq .Titulo "Matriz"}} aria-current="page"{{end}}>Matriz</a>
+      <a href="/mudancas"{{if eq .Titulo "O que mudou"}} aria-current="page"{{end}}>O que mudou</a>
+      <a href="/prs"{{if eq .Titulo "Fila de review"}} aria-current="page"{{end}}>Fila de review</a>
     </nav>
-    <span class="sync" title="Último sync bem-sucedido">
-      {{if .Sync.UltimoOK.IsZero}}Último sync: nunca
-      {{else}}Último sync: {{dataHora .Sync.UltimoOK}} ({{haQuanto .Sync.UltimoOK}}){{end}}
+    <span class="sync{{if .Sync.UltimoErro}} falhou{{end}}" title="Último sync bem-sucedido: {{dataHora .Sync.UltimoOK}}">
+      {{if .Sync.UltimoOK.IsZero}}Nenhum sync concluído ainda{{else if .Sync.UltimoErro}}Último sync bom {{haQuanto .Sync.UltimoOK}}{{else}}Sincronizado {{haQuanto .Sync.UltimoOK}}{{end}}
     </span>
   </header>
   {{if .Sync.UltimoErro}}
-  <div class="alerta" role="alert">
-    <strong>O último sync falhou.</strong> Os dados podem estar desatualizados.
+  <details class="alerta" role="alert">
+    <summary><strong>O último sync falhou.</strong> Os números podem estar desatualizados. <span class="abrir">Ver o erro</span></summary>
     <pre>{{.Sync.UltimoErro}}</pre>
-  </div>
+  </details>
   {{end}}
   <main>
     {{template "conteudo" .Conteudo}}
   </main>
 </body>
 </html>
+{{end}}
+
+{{/* Partes usadas por mais de uma página. */}}
+{{define "eventos"}}
+<ul class="eventos">
+  {{range .}}
+  <li class="evento evento-{{.Kind}}">
+    <time class="quando" datetime="{{rfc3339 .OccurredAt}}" title="{{dataHora .OccurredAt}}">{{haQuanto .OccurredAt}}</time>
+    <span class="resumo">{{.Summary}}</span>
+    <a class="ref" href="{{.URL}}" target="_blank" rel="noopener">{{.Ref}}</a>
+  </li>
+  {{end}}
+</ul>
 {{end}}

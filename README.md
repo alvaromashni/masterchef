@@ -4,10 +4,11 @@ Painel local e **somente leitura** que mostra o estado real dos produtos a parti
 Linear, do GitHub e dos Markdown do repo central. Veja o [CONTEXT.md](CONTEXT.md) para
 a visão completa e as regras do projeto.
 
-> Status: **Fase 4**. O painel coleta issues do Linear e PRs do GitHub, calcula o
+> Status: **Fase 5**. O painel coleta issues do Linear e PRs do GitHub, calcula o
 > risco de cada PR, vincula issues a PRs, registra o que mudou a cada ciclo e mostra
 > a matriz, a fila de review, a tela "o que mudou" e as páginas de escopo e de
-> decisões, com o Markdown do repo central.
+> decisões, com o Markdown do repo central. A Fase 5 refinou o visual (fontes
+> Barlow embutidas no binário, licença OFL em `internal/web/static/fontes`).
 
 ## Telas
 

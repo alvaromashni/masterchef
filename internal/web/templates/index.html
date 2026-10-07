@@ -1,49 +1,52 @@
 {{define "conteudo"}}
-<h1>Matriz</h1>
+<div class="cabecalho">
+  <h1>Matriz</h1>
+  <p class="subtitulo">Cada célula é um escopo de um produto. Clique para ver issues, PRs e o PRODUCT.md.</p>
+</div>
 {{if not .Linhas}}
-<p class="vazio">Nenhum produto configurado.</p>
+<p class="vazio">Nenhum produto configurado. Adicione produtos ao <code>config.yaml</code> e reinicie o painel.</p>
 {{else}}
-<p class="legenda">
-  Em cada célula: issues em andamento · PRs aguardando review · última atividade.
-  <span class="selo alto">▲</span> = PR de risco alto pendente.
-  <span class="selo novo">3 novas</span> = mudanças ainda não vistas.
-  Células <span class="parada-exemplo">em amarelo</span> estão paradas.
-</p>
+<div class="rolagem">
 <table class="matriz">
   <thead>
     <tr>
-      <th>Produto</th>
-      {{range .Escopos}}<th>{{.}}</th>{{end}}
-      <th class="a-classificar">a classificar</th>
+      <th scope="col"><span class="oculto">Produto</span></th>
+      {{range .Escopos}}<th scope="col">{{.}}</th>{{end}}
+      <th scope="col" class="col-a-classificar">a classificar</th>
     </tr>
   </thead>
   <tbody>
     {{range .Linhas}}
     <tr>
-      <th scope="row">{{.Produto.Nome}} <a class="decisoes" href="/p/{{.Produto.Slug}}/decisoes" title="Decisões do produto (DECISIONS.md)">decisões</a></th>
+      <th scope="row">
+        <span class="produto-nome">{{.Produto.Nome}}</span>
+        <a class="decisoes" href="/p/{{.Produto.Slug}}/decisoes">Decisões</a>
+      </th>
       {{range .Celulas}}
         {{if .Existe}}{{template "celula" .}}
-        {{else}}<td class="celula inexistente" title="Escopo não configurado neste produto">—</td>{{end}}
+        {{else}}<td class="celula inexistente"><span class="oculto">Escopo não configurado neste produto</span></td>{{end}}
       {{end}}
       {{template "celula" .AClassificar}}
     </tr>
     {{end}}
   </tbody>
 </table>
+</div>
+<ul class="legenda">
+  <li><span class="amostra amostra-alto"></span>PR de risco alto aguardando review</li>
+  <li><span class="amostra amostra-parada"></span>Parada: issues em andamento sem atividade recente</li>
+  <li><span class="pilula">2 novas</span>Mudanças que você ainda não marcou como vistas</li>
+</ul>
 {{end}}
 {{end}}
 
 {{define "celula"}}
-<td class="celula{{if .Parada}} parada{{end}}"{{if .Parada}} title="Parada: sem atividade recente e com issues em andamento"{{end}}>
-  <a class="celula-link" href="{{.Link}}" title="Abrir a página deste escopo">
-  <div class="numeros">
-    <span title="Issues em andamento">{{.EmAndamento}}</span>
-    <span class="sep">·</span>
-    <span title="PRs aguardando review">{{.AguardandoReview}} PR</span>
-    {{if .RiscoAltoPendente}}<span class="selo alto" title="PR de risco alto aguardando review">▲</span>{{end}}
-  </div>
-  <div class="atividade">{{haQuanto .UltimaAtividade}}</div>
+<td class="celula{{if .Parada}} parada{{end}}{{if .RiscoAltoPendente}} risco-alto{{end}}{{if and (not .EmAndamento) (not .AguardandoReview)}} quieta{{end}}">
+  <a class="celula-link" href="{{.Link}}">
+    <span class="contagem-principal"><span class="numero">{{.EmAndamento}}</span> em andamento</span>
+    <span class="contagem-pr">{{.AguardandoReview}} {{if eq .AguardandoReview 1}}PR aguarda{{else}}PRs aguardam{{end}} review{{if .RiscoAltoPendente}}, com risco alto{{end}}</span>
+    <span class="atividade">{{if .Parada}}Parada, {{end}}{{if .UltimaAtividade.IsZero}}sem atividade{{else}}{{haQuanto .UltimaAtividade}}{{end}}</span>
   </a>
-  {{if .NaoVistas}}<a class="selo novo" href="/mudancas" title="Mudanças desde a última vez que você marcou como visto">{{.NaoVistas}} {{if eq .NaoVistas 1}}nova{{else}}novas{{end}}</a>{{end}}
+  {{if .NaoVistas}}<a class="pilula" href="/mudancas">{{.NaoVistas}} {{if eq .NaoVistas 1}}nova{{else}}novas{{end}}</a>{{end}}
 </td>
 {{end}}

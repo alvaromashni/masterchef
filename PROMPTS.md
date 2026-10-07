@@ -101,6 +101,30 @@ Ao terminar: go vet, go test ./..., PR com a descrição da seção 14.
 
 ---
 
+## Fase 5 — Refinamento de UI
+
+```
+Leia o CONTEXT.md. As fases 0 a 4 estão mergeadas.
+
+Implemente apenas a Fase 5. Nenhuma regra de domínio, consulta ou rota muda:
+só templates e o CSS.
+
+- Dar ao painel uma identidade visual própria (paleta, tipografia, layout),
+  sem framework de CSS e sem build. Fontes embutidas no binário, sem CDN.
+- Risco legível de relance: a cor forte fica reservada para o nível de risco.
+- Aviso de sync com falha continua visível em toda página, mas compacto
+  (o texto do erro abre sob demanda).
+- Matriz: células clicáveis inteiras, número principal em destaque, célula
+  parada distinguível sem depender de cor.
+- Funcionar em tela estreita (celular) sem quebrar a matriz.
+- Foco de teclado visível e contraste adequado.
+
+Ao terminar: go vet, go test ./..., screenshots antes/depois no PR e a
+descrição da seção 14.
+```
+
+---
+
 ## Dica de revisão para cada PR
 
 Antes de aprovar, peça numa **sessão nova** (sem o contexto da implementação):

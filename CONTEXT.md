@@ -287,6 +287,7 @@ Se um arquivo não existir, a tela mostra um aviso amigável, nunca um erro.
 | 2 | Coletor do GitHub + motor de risco + vínculo issue ↔ PR + fila de review |
 | 3 | Eventos + tela "o que mudou" |
 | 4 | Páginas de escopo e decisões com Markdown do repo central |
+| 5 | Refinamento de UI: identidade visual, legibilidade do risco, celular |
 | Futuro | Servidor MCP no mesmo binário (SDK oficial de MCP para Go): tools somente leitura do estado + gravação de log estruturado do agente |
 | Futuro | Revisor independente com outro modelo (opcional, sempre rotulado como opinião) |
 
