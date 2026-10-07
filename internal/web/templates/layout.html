@@ -14,9 +14,19 @@
     <nav>
       <a href="/">Matriz</a>
     </nav>
+    <span class="sync" title="Último sync bem-sucedido">
+      {{if .Sync.UltimoOK.IsZero}}Último sync: nunca
+      {{else}}Último sync: {{dataHora .Sync.UltimoOK}} ({{haQuanto .Sync.UltimoOK}}){{end}}
+    </span>
   </header>
+  {{if .Sync.UltimoErro}}
+  <div class="alerta" role="alert">
+    <strong>O último sync falhou.</strong> Os dados podem estar desatualizados.
+    <pre>{{.Sync.UltimoErro}}</pre>
+  </div>
+  {{end}}
   <main>
-    {{template "conteudo" .}}
+    {{template "conteudo" .Conteudo}}
   </main>
 </body>
 </html>

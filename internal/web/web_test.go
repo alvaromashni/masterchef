@@ -5,14 +5,27 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/alvaromashni/masterchef/internal/config"
+	"github.com/alvaromashni/masterchef/internal/store"
 )
 
 func novoServidor(t *testing.T) http.Handler {
 	t.Helper()
-	// O store ainda não é usado pelas páginas da Fase 0, então nil basta.
-	s, err := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	st, err := store.Open(filepath.Join(t.TempDir(), "teste.db"), logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+
+	cfg := &config.Config{Produtos: []config.Produto{
+		{Nome: "Produto X", Slug: "produto-x", Escopos: config.Escopos{{Nome: "api"}, {Nome: "front"}}},
+	}}
+	s, err := New(cfg, st, logger)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -27,7 +40,7 @@ func TestIndex(t *testing.T) {
 		t.Fatalf("status = %d, esperava 200", rec.Code)
 	}
 	corpo := rec.Body.String()
-	for _, trecho := range []string{"<h1>Matriz</h1>", "htmx.org", "/static/painel.css"} {
+	for _, trecho := range []string{"<h1>Matriz</h1>", "htmx.org", "/static/painel.css", "Produto X", "a classificar", "Último sync: nunca"} {
 		if !strings.Contains(corpo, trecho) {
 			t.Errorf("página não contém %q", trecho)
 		}

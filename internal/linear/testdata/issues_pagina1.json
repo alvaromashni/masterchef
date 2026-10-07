@@ -1,0 +1,20 @@
+{
+  "data": {
+    "issues": {
+      "nodes": [
+        {
+          "id": "id-1",
+          "identifier": "ABC-1",
+          "title": "Criar endpoint de login",
+          "description": "Critérios:\n- [ ] retorna 200\n- [ ] retorna 401",
+          "url": "https://linear.app/x/issue/ABC-1",
+          "updatedAt": "2026-10-01T12:00:00.000Z",
+          "state": { "name": "In Progress", "type": "started" },
+          "labels": { "nodes": [ { "name": "scope:api" }, { "name": "bug" } ] },
+          "attachments": { "nodes": [ { "url": "https://github.com/alvaromashni/produto-x-api/pull/7" } ] }
+        }
+      ],
+      "pageInfo": { "hasNextPage": true, "endCursor": "cursor-1" }
+    }
+  }
+}

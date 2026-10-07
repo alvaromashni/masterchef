@@ -1,0 +1,8 @@
+[
+  {
+    "ID": "y-1", "Identifier": "PY-1", "Title": "Tela inicial",
+    "StateName": "In Review", "StateType": "started",
+    "Labels": ["scope:app"], "URL": "https://linear.app/x/issue/PY-1",
+    "UpdatedAt": "2026-10-02T09:00:00Z"
+  }
+]

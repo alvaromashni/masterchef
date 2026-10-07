@@ -16,7 +16,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alvaromashni/masterchef/internal/collector"
 	"github.com/alvaromashni/masterchef/internal/config"
+	"github.com/alvaromashni/masterchef/internal/linear"
 	"github.com/alvaromashni/masterchef/internal/store"
 	"github.com/alvaromashni/masterchef/internal/web"
 )
@@ -49,7 +51,7 @@ func run(logger *slog.Logger) error {
 	}
 	defer st.Close()
 
-	srv, err := web.New(st, logger)
+	srv, err := web.New(cfg, st, logger)
 	if err != nil {
 		return err
 	}
@@ -65,6 +67,11 @@ func run(logger *slog.Logger) error {
 	// pede para encerrar (SIGTERM). Usamos isso para desligar com calma.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// O coletor roda em paralelo ao servidor: um ciclo agora e outro a cada
+	// poll_interval. Ele para sozinho quando ctx é cancelado (Ctrl+C).
+	coletor := collector.New(cfg, linear.New(cfg.LinearAPIKey, ""), st, logger)
+	go coletor.Run(ctx)
 
 	// ListenAndServe bloqueia, então roda numa goroutine e avisa erros pelo canal.
 	erroServidor := make(chan error, 1)
