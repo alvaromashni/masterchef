@@ -30,6 +30,10 @@ no título ou no corpo do PR, ou a issue tem no Linear um anexo com a URL do PR.
 A branch é comparada sem diferenciar maiúsculas, porque o Linear sugere branches em
 minúsculas (`alvaro/abc-123-login`).
 
+**Primeiro sync**: busca todas as issues não canceladas do Linear e, no GitHub, os PRs
+abertos mais os fechados/mergeados nos últimos 45 dias (`JanelaPrimeiroSync` em
+`internal/collector`). Depois, cada ciclo busca só o que mudou desde o último sync.
+
 **Risco de um PR**: `alto` se algum arquivo casa com uma regra alta; senão `medio` se
 casa com uma regra média, se o diff passa de `limite_linhas_diff` ou se nenhum
 arquivo casa com `padroes_de_teste`; senão `baixo`. A tela sempre mostra os motivos.

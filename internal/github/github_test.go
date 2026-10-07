@@ -160,3 +160,17 @@ func TestErroDePermissao(t *testing.T) {
 		t.Fatalf("esperava HTTP 403, veio: %v", err)
 	}
 }
+
+func TestListPRsAbertos(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("state"); got != "open" {
+			t.Errorf("state = %q, esperava open", got)
+		}
+		servirFixture(t, w, "prs_pagina2.json")
+	}))
+	defer srv.Close()
+
+	if _, err := New("tok", srv.URL, loggerSilencioso).ListPRsAbertos(context.Background(), "o/api"); err != nil {
+		t.Fatal(err)
+	}
+}

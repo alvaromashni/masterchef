@@ -42,11 +42,31 @@ type githubFalso struct {
 	chamadasArquivos int
 }
 
-func (f *githubFalso) ListPRs(_ context.Context, repo string, _ *time.Time) ([]github.PR, error) {
+// ListPRs imita o GitHub: devolve só os PRs atualizados depois de desde.
+func (f *githubFalso) ListPRs(_ context.Context, repo string, desde *time.Time) ([]github.PR, error) {
 	if err := f.falhas[repo]; err != nil {
 		return nil, err
 	}
-	return f.prs[repo], nil
+	var prs []github.PR
+	for _, pr := range f.prs[repo] {
+		if desde == nil || pr.UpdatedAt.After(*desde) {
+			prs = append(prs, pr)
+		}
+	}
+	return prs, nil
+}
+
+func (f *githubFalso) ListPRsAbertos(_ context.Context, repo string) ([]github.PR, error) {
+	if err := f.falhas[repo]; err != nil {
+		return nil, err
+	}
+	var prs []github.PR
+	for _, pr := range f.prs[repo] {
+		if pr.State == "open" {
+			prs = append(prs, pr)
+		}
+	}
+	return prs, nil
 }
 
 func (f *githubFalso) ListArquivos(_ context.Context, _ string, number int) ([]github.Arquivo, error) {
@@ -326,7 +346,7 @@ func TestCiclo_PRSemMudancaNaoBuscaArquivosDeNovo(t *testing.T) {
 
 	// Um push muda o updated_at: agora sim busca de novo.
 	*relogio = relogio.Add(time.Minute)
-	gh.prs["o/x-api"][0].UpdatedAt = gh.prs["o/x-api"][0].UpdatedAt.Add(time.Hour)
+	gh.prs["o/x-api"][0].UpdatedAt = *relogio
 	if err := c.Ciclo(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -350,5 +370,33 @@ func TestCiclo_ErroEmUmRepoNaoDerrubaOCiclo(t *testing.T) {
 	estado, _ := st.LerEstadoSync(ctx)
 	if !strings.Contains(estado.UltimoErro, "o/x-front") || !estado.UltimoOK.IsZero() {
 		t.Errorf("erro = %q, ok = %v; esperava erro do repo e last_sync_ok vazio", estado.UltimoErro, estado.UltimoOK)
+	}
+}
+
+func TestCiclo_PrimeiroSyncLimitaPRsFechadosAntigos(t *testing.T) {
+	c, _, gh, st, relogio := montar(t)
+	ctx := context.Background()
+
+	velho := relogio.Add(-JanelaPrimeiroSync - time.Hour)
+	recente := relogio.Add(-JanelaPrimeiroSync + time.Hour)
+	gh.prs["o/x-front"] = []github.PR{
+		{ID: 1, Number: 1, State: "merged", UpdatedAt: velho},   // fora da janela: não entra
+		{ID: 2, Number: 2, State: "merged", UpdatedAt: recente}, // dentro da janela: entra
+		{ID: 3, Number: 3, State: "open", UpdatedAt: velho},     // aberto antigo: entra sempre
+	}
+
+	if err := c.Ciclo(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	prs, _ := st.ListarPRs(ctx)
+	gravados := map[int]bool{}
+	for _, p := range prs {
+		if p.Scope == "front" {
+			gravados[p.Number] = true
+		}
+	}
+	if gravados[1] || !gravados[2] || !gravados[3] {
+		t.Errorf("PRs do front gravados = %v; esperava #2 e #3, sem o #1 (mergeado há mais de 45 dias)", gravados)
 	}
 }

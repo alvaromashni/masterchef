@@ -71,13 +71,22 @@ func New(token, baseURL string, logger *slog.Logger) *Client {
 	}
 }
 
-// ListPRs devolve os PRs do repo (abertos, fechados e mergeados).
-//
-// Pedimos ordenado por "atualizado por último" primeiro. Assim, quando
-// updatedSince é informado, podemos parar de paginar assim que achamos um
-// PR mais antigo que ele: todos os seguintes também serão.
+// ListPRs devolve os PRs do repo (abertos, fechados e mergeados)
+// atualizados depois de updatedSince (nil = todos).
 func (c *Client) ListPRs(ctx context.Context, repo string, updatedSince *time.Time) ([]PR, error) {
-	proxima := fmt.Sprintf("%s/repos/%s/pulls?state=all&sort=updated&direction=desc&per_page=100", c.baseURL, repo)
+	return c.listarPRs(ctx, repo, "all", updatedSince)
+}
+
+// ListPRsAbertos devolve todos os PRs abertos do repo, não importa a idade.
+func (c *Client) ListPRsAbertos(ctx context.Context, repo string) ([]PR, error) {
+	return c.listarPRs(ctx, repo, "open", nil)
+}
+
+// listarPRs pede os PRs ordenados por "atualizado por último" primeiro.
+// Assim, quando updatedSince é informado, podemos parar de paginar assim
+// que achamos um PR mais antigo que ele: todos os seguintes também serão.
+func (c *Client) listarPRs(ctx context.Context, repo, estado string, updatedSince *time.Time) ([]PR, error) {
+	proxima := fmt.Sprintf("%s/repos/%s/pulls?state=%s&sort=updated&direction=desc&per_page=100", c.baseURL, repo, estado)
 	var todos []PR
 
 	for proxima != "" {

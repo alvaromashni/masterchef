@@ -28,6 +28,7 @@ type FonteIssues interface {
 // FontePRs é o que o coletor precisa do GitHub.
 type FontePRs interface {
 	ListPRs(ctx context.Context, repo string, updatedSince *time.Time) ([]github.PR, error)
+	ListPRsAbertos(ctx context.Context, repo string) ([]github.PR, error)
 	ListArquivos(ctx context.Context, repo string, number int) ([]github.Arquivo, error)
 }
 
@@ -39,6 +40,12 @@ type Gravador interface {
 	ListarPRs(ctx context.Context) ([]store.PR, error)
 	SalvarSync(ctx context.Context, r store.SyncResultado) error
 }
+
+// JanelaPrimeiroSync limita quanto do passado o primeiro sync busca no
+// GitHub: PRs fechados ou mergeados há mais tempo que isso ficam de fora
+// (abertos entram sempre). Sem limite, o primeiro sync buscaria a história
+// inteira de cada repo, com uma chamada de arquivos por PR.
+const JanelaPrimeiroSync = 45 * 24 * time.Hour
 
 // Collector roda os ciclos de coleta.
 type Collector struct {
@@ -165,7 +172,7 @@ func (c *Collector) coletarPRs(ctx context.Context, desde *time.Time, resultado 
 	var refs []PRRef
 	for _, p := range c.produtos {
 		for _, e := range p.Escopos {
-			prs, err := c.github.ListPRs(ctx, e.Repo, desde)
+			prs, err := c.buscarPRs(ctx, e.Repo, desde)
 			if err != nil {
 				anotarErro(e.Repo, err)
 				continue
@@ -185,6 +192,35 @@ func (c *Collector) coletarPRs(ctx context.Context, desde *time.Time, resultado 
 		}
 	}
 	return refs, nil
+}
+
+// buscarPRs traz os PRs alterados desde o último sync. No primeiro sync
+// (desde == nil) traz os PRs abertos mais os atualizados dentro de
+// JanelaPrimeiroSync, sem repetir os que aparecem nas duas listas.
+func (c *Collector) buscarPRs(ctx context.Context, repo string, desde *time.Time) ([]github.PR, error) {
+	if desde != nil {
+		return c.github.ListPRs(ctx, repo, desde)
+	}
+
+	corte := c.agora().Add(-JanelaPrimeiroSync)
+	recentes, err := c.github.ListPRs(ctx, repo, &corte)
+	if err != nil {
+		return nil, err
+	}
+	abertos, err := c.github.ListPRsAbertos(ctx, repo)
+	if err != nil {
+		return nil, err
+	}
+
+	vistos := map[int64]bool{}
+	var todos []github.PR
+	for _, pr := range append(recentes, abertos...) {
+		if !vistos[pr.ID] {
+			vistos[pr.ID] = true
+			todos = append(todos, pr)
+		}
+	}
+	return todos, nil
 }
 
 // calcularVinculos junta o que já está no banco com o que acabou de chegar e
