@@ -52,7 +52,7 @@ func TestIndex(t *testing.T) {
 		t.Fatalf("status = %d, esperava 200", rec.Code)
 	}
 	corpo := rec.Body.String()
-	for _, trecho := range []string{"<h1>Matriz</h1>", "htmx.org", "/static/painel.css", "Produto X", "a classificar", "Último sync: nunca"} {
+	for _, trecho := range []string{"<h1>Matriz</h1>", "htmx.org", "/static/painel.css", "Produto X", "a classificar", "Nenhum sync concluído ainda"} {
 		if !strings.Contains(corpo, trecho) {
 			t.Errorf("página não contém %q", trecho)
 		}
@@ -67,18 +67,22 @@ func TestCaminhoInexistenteDa404(t *testing.T) {
 	}
 }
 
-func TestCSS(t *testing.T) {
-	rec := httptest.NewRecorder()
-	novoServidor(t).ServeHTTP(rec, httptest.NewRequest("GET", "/static/painel.css", nil))
-	if rec.Code != http.StatusOK {
-		t.Errorf("status = %d, esperava 200", rec.Code)
+func TestArquivosEstaticos(t *testing.T) {
+	h := novoServidor(t)
+	// O CSS e as fontes que ele referencia precisam estar embutidos no binário.
+	for _, caminho := range []string{"/static/painel.css", "/static/fontes/barlow-latin-400-normal.woff2", "/static/fontes/barlow-semi-condensed-latin-700-normal.woff2"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("GET", caminho, nil))
+		if rec.Code != http.StatusOK {
+			t.Errorf("%s: status = %d, esperava 200", caminho, rec.Code)
+		}
 	}
 }
 
 func TestFilaDeReviewVazia(t *testing.T) {
 	rec := httptest.NewRecorder()
 	novoServidor(t).ServeHTTP(rec, httptest.NewRequest("GET", "/prs", nil))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Nenhum PR aberto") {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Nenhum PR aguardando review") {
 		t.Errorf("status = %d; corpo sem a mensagem de fila vazia", rec.Code)
 	}
 }

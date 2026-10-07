@@ -1,68 +1,76 @@
 {{define "conteudo"}}
-<p class="trilha"><a href="/">Matriz</a> › {{.Produto.Nome}} › {{escopo .Escopo}} · <a href="/p/{{.Produto.Slug}}/decisoes">decisões do produto</a></p>
-<h1>{{.Produto.Nome}} · {{escopo .Escopo}}</h1>
+<nav class="trilha" aria-label="Você está em">
+  <a href="/">Matriz</a> / <span>{{.Produto.Nome}}</span> / <span>{{escopo .Escopo}}</span>
+</nav>
+<div class="cabecalho cabecalho-escopo">
+  <h1>{{escopo .Escopo}} <span class="do-produto">em {{.Produto.Nome}}</span></h1>
+  <a class="botao-secundario" href="/p/{{.Produto.Slug}}/decisoes">Decisões do produto</a>
+</div>
 
 <div class="colunas">
-  <section>
-    <h2>Issues</h2>
-    {{if not .IssuesPorEstado}}
-    <p class="vazio">Nenhuma issue neste escopo.</p>
-    {{else}}
-      {{range .IssuesPorEstado}}
-      <h3>{{.Estado}} <span class="contagem">{{len .Issues}}</span></h3>
-      <ul class="lista">
-        {{range .Issues}}
-        <li>
-          <a href="{{.URL}}" target="_blank" rel="noopener">{{.Identifier}}</a> {{.Title}}
-          <span class="estado" title="{{dataHora .UpdatedAt}}">{{haQuanto .UpdatedAt}}</span>
+  <div class="coluna-dados">
+    <section>
+      <h2>Issues</h2>
+      {{if not .IssuesPorEstado}}
+      <p class="vazio">Nenhuma issue neste escopo.</p>
+      {{else}}
+        {{range .IssuesPorEstado}}
+        <h3 class="estado-titulo">{{.Estado}} <span class="contagem">{{len .Issues}}</span></h3>
+        <ul class="lista">
+          {{range .Issues}}
+          <li>
+            <a class="id" href="{{.URL}}" target="_blank" rel="noopener">{{.Identifier}}</a>
+            <span class="titulo">{{.Title}}</span>
+            <time class="quando" title="{{dataHora .UpdatedAt}}">{{haQuanto .UpdatedAt}}</time>
+          </li>
+          {{end}}
+        </ul>
+        {{end}}
+      {{end}}
+    </section>
+
+    <section>
+      <h2>PRs abertos</h2>
+      {{if not .PRsAbertos}}
+      <p class="vazio">Nenhum PR aberto neste escopo.</p>
+      {{else}}
+      <ol class="fila">
+        {{range .PRsAbertos}}
+        <li class="ticket compacto risco-{{.RiskLevel}}">
+          <div class="ticket-risco">
+            <span class="nivel">{{risco .RiskLevel}}</span>
+            <span class="espera">aberto {{haQuanto .CreatedAt}}</span>
+          </div>
+          <div class="ticket-corpo">
+            <h3 class="ticket-titulo"><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>{{if .Draft}} <span class="rascunho">rascunho</span>{{end}}</h3>
+            <p class="ticket-meta">
+              <span>{{.Repo}}#{{.Number}}</span>
+              <span class="diff"><span class="mais">+{{.Additions}}</span> <span class="menos">−{{.Deletions}}</span></span>
+            </p>
+            {{if .RiskReasons}}
+            <ul class="motivos">{{range .RiskReasons}}<li>{{.}}</li>{{end}}</ul>
+            {{end}}
+          </div>
         </li>
         {{end}}
-      </ul>
+      </ol>
       {{end}}
-    {{end}}
+    </section>
 
-    <h2>PRs abertos</h2>
-    {{if not .PRsAbertos}}
-    <p class="vazio">Nenhum PR aberto neste escopo.</p>
-    {{else}}
-    <ul class="fila">
-      {{range .PRsAbertos}}
-      <li class="item risco-{{.RiskLevel}}">
-        <div class="item-topo">
-          <span class="selo {{.RiskLevel}}">{{risco .RiskLevel}}</span>
-          <a href="{{.URL}}" target="_blank" rel="noopener">{{.Repo}}#{{.Number}}</a>
-          <strong>{{.Title}}</strong>
-          {{if .Draft}}<span class="estado">rascunho</span>{{end}}
-        </div>
-        <div class="item-meta">aberto {{haQuanto .CreatedAt}} · +{{.Additions}} −{{.Deletions}}</div>
-        {{if .RiskReasons}}
-        <ul class="motivos">{{range .RiskReasons}}<li>{{.}}</li>{{end}}</ul>
-        {{end}}
-      </li>
+    <section>
+      <h2>Eventos recentes</h2>
+      {{if not .Eventos}}
+      <p class="vazio">Nenhum evento registrado neste escopo.</p>
+      {{else}}
+      {{template "eventos" .Eventos}}
       {{end}}
-    </ul>
-    {{end}}
+    </section>
+  </div>
 
-    <h2>Eventos recentes</h2>
-    {{if not .Eventos}}
-    <p class="vazio">Nenhum evento registrado neste escopo.</p>
-    {{else}}
-    <ul class="eventos">
-      {{range .Eventos}}
-      <li class="evento evento-{{.Kind}}">
-        <span class="quando" title="{{dataHora .OccurredAt}}">{{haQuanto .OccurredAt}}</span>
-        <a href="{{.URL}}" target="_blank" rel="noopener">{{.Ref}}</a>
-        <span>{{.Summary}}</span>
-      </li>
-      {{end}}
-    </ul>
-    {{end}}
-  </section>
-
-  <aside class="markdown">
-    <h2>PRODUCT.md</h2>
-    {{if .Product.Aviso}}<p class="vazio">{{.Product.Aviso}}</p>{{end}}
-    {{.Product.HTML}}
+  <aside class="documento" aria-label="Seção do PRODUCT.md">
+    <p class="documento-origem">{{if .Escopo}}PRODUCT.md, seção “{{.Escopo}}”{{else}}PRODUCT.md{{end}}</p>
+    {{if .Product.Aviso}}<p class="nota">{{.Product.Aviso}}</p>{{end}}
+    <div class="markdown">{{.Product.HTML}}</div>
   </aside>
 </div>
 {{end}}

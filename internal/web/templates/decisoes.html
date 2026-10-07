@@ -1,8 +1,13 @@
 {{define "conteudo"}}
-<p class="trilha"><a href="/">Matriz</a> › {{.Produto.Nome}} › decisões</p>
-<h1>{{.Produto.Nome}} · decisões</h1>
-<article class="markdown">
-  {{if .Doc.Aviso}}<p class="vazio">{{.Doc.Aviso}}</p>{{end}}
-  {{.Doc.HTML}}
+<nav class="trilha" aria-label="Você está em">
+  <a href="/">Matriz</a> / <span>{{.Produto.Nome}}</span> / <span>Decisões</span>
+</nav>
+<div class="cabecalho">
+  <h1>Decisões <span class="do-produto">de {{.Produto.Nome}}</span></h1>
+  <p class="subtitulo">Conteúdo do DECISIONS.md do produto, no repo central.</p>
+</div>
+<article class="documento documento-largo">
+  {{if .Doc.Aviso}}<p class="nota">{{.Doc.Aviso}}</p>{{end}}
+  <div class="markdown">{{.Doc.HTML}}</div>
 </article>
 {{end}}
