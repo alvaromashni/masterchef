@@ -62,3 +62,11 @@ func TestCSS(t *testing.T) {
 		t.Errorf("status = %d, esperava 200", rec.Code)
 	}
 }
+
+func TestFilaDeReviewVazia(t *testing.T) {
+	rec := httptest.NewRecorder()
+	novoServidor(t).ServeHTTP(rec, httptest.NewRequest("GET", "/prs", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Nenhum PR aberto") {
+		t.Errorf("status = %d; corpo sem a mensagem de fila vazia", rec.Code)
+	}
+}

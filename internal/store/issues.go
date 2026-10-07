@@ -31,7 +31,9 @@ type Issue struct {
 
 // SyncResultado é tudo que um ciclo de coleta quer gravar.
 type SyncResultado struct {
-	Issues []Issue
+	Issues   []Issue
+	PRs      []PR
+	Vinculos []Vinculo
 	// Iniciado é quando o ciclo começou. Vira last_sync_ok se não houve erro.
 	Iniciado time.Time
 	// Erros de produtos que falharam. Se houver algum, last_sync_ok NÃO avança.
@@ -52,9 +54,20 @@ func (s *Store) SalvarSync(ctx context.Context, r SyncResultado) error {
 			return err
 		}
 	}
+	for _, p := range r.PRs {
+		if err := upsertPR(ctx, tx, p); err != nil {
+			return err
+		}
+	}
+	for _, v := range r.Vinculos {
+		if err := inserirVinculo(ctx, tx, v); err != nil {
+			return err
+		}
+	}
 
 	if len(r.Erros) > 0 {
-		msg := r.Iniciado.UTC().Format(time.RFC3339) + ": " + strings.Join(r.Erros, "; ")
+		// Um erro por linha: a tela mostra cada um separado.
+		msg := "Ciclo de " + r.Iniciado.UTC().Format(time.RFC3339) + ":\n" + strings.Join(r.Erros, "\n")
 		if err := setMeta(ctx, tx, MetaLastSyncError, msg); err != nil {
 			return err
 		}
@@ -91,43 +104,37 @@ func upsertIssue(ctx context.Context, tx *sql.Tx, i Issue) error {
 			description  = excluded.description,
 			updated_at   = excluded.updated_at`,
 		i.ID, i.Identifier, i.ProductSlug, i.Title, i.StateName, i.StateType,
-		nuloSeVazio(i.ScopeLabel), i.URL, i.Description, i.UpdatedAt.UTC().Format(time.RFC3339))
+		nuloSeVazio(i.ScopeLabel), i.URL, i.Description, formatar(i.UpdatedAt))
 	if err != nil {
 		return fmt.Errorf("gravando issue %s: %w", i.Identifier, err)
 	}
 	return nil
 }
 
-// ContagemCelula é o número de issues em andamento de um produto num escopo.
-// Escopo vazio = issue sem label de escopo.
-type ContagemCelula struct {
-	ProductSlug string
-	Escopo      string
-	EmAndamento int
-}
-
-// ContarEmAndamento devolve, por produto e escopo, quantas issues estão
-// em andamento (state_type = 'started' no Linear).
-func (s *Store) ContarEmAndamento(ctx context.Context) ([]ContagemCelula, error) {
+// ListarIssues devolve todas as issues gravadas.
+func (s *Store) ListarIssues(ctx context.Context) ([]Issue, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT product_slug, COALESCE(scope_label, ''), COUNT(*)
-		FROM issues
-		WHERE state_type = 'started'
-		GROUP BY product_slug, scope_label`)
+		SELECT id, identifier, product_slug, title, state_name, state_type,
+			COALESCE(scope_label, ''), url, COALESCE(description, ''), updated_at
+		FROM issues`)
 	if err != nil {
-		return nil, fmt.Errorf("contando issues em andamento: %w", err)
+		return nil, fmt.Errorf("listando issues: %w", err)
 	}
 	defer rows.Close()
 
-	var contagens []ContagemCelula
+	var issues []Issue
 	for rows.Next() {
-		var c ContagemCelula
-		if err := rows.Scan(&c.ProductSlug, &c.Escopo, &c.EmAndamento); err != nil {
-			return nil, fmt.Errorf("lendo contagem: %w", err)
+		var i Issue
+		var atualizado string
+		err := rows.Scan(&i.ID, &i.Identifier, &i.ProductSlug, &i.Title, &i.StateName, &i.StateType,
+			&i.ScopeLabel, &i.URL, &i.Description, &atualizado)
+		if err != nil {
+			return nil, fmt.Errorf("lendo issue: %w", err)
 		}
-		contagens = append(contagens, c)
+		i.UpdatedAt = parsear(atualizado)
+		issues = append(issues, i)
 	}
-	return contagens, rows.Err()
+	return issues, rows.Err()
 }
 
 // EstadoSync é o que o topo de toda página mostra.

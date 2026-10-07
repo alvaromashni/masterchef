@@ -43,9 +43,10 @@ func New(cfg *config.Config, st *store.Store, logger *slog.Logger) (*Server, err
 	funcoes := template.FuncMap{
 		"dataHora": dataHora,
 		"haQuanto": func(t time.Time) string { return haQuanto(time.Now(), t) },
+		"risco":    textoRisco,
 	}
 
-	for _, pagina := range []string{"index.html"} {
+	for _, pagina := range []string{"index.html", "prs.html"} {
 		tmpl, err := template.New(pagina).Funcs(funcoes).ParseFS(templatesFS, "templates/layout.html", "templates/"+pagina)
 		if err != nil {
 			return nil, fmt.Errorf("carregando template %s: %w", pagina, err)
@@ -62,6 +63,7 @@ func (s *Server) Handler() http.Handler {
 	// Desde o Go 1.22 o ServeMux aceita método e caminho no padrão.
 	// "{$}" faz "/" casar só com a raiz, e não com qualquer caminho.
 	mux.HandleFunc("GET /{$}", s.handleIndex)
+	mux.HandleFunc("GET /prs", s.handlePRs)
 
 	static, _ := fs.Sub(staticFS, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
@@ -78,13 +80,38 @@ type dadosPagina struct {
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	contagens, err := s.store.ContarEmAndamento(ctx)
+	d, err := s.carregarDados(r)
 	if err != nil {
 		s.erroInterno(w, err)
 		return
 	}
-	s.render(w, r, "index.html", "Matriz", montarMatriz(s.cfg.Produtos, contagens))
+	s.render(w, r, "index.html", "Matriz", montarMatriz(s.cfg.Produtos, d, s.cfg.StaleAfter, time.Now()))
+}
+
+func (s *Server) handlePRs(w http.ResponseWriter, r *http.Request) {
+	d, err := s.carregarDados(r)
+	if err != nil {
+		s.erroInterno(w, err)
+		return
+	}
+	s.render(w, r, "prs.html", "Fila de review", montarFila(d))
+}
+
+// carregarDados lê issues, PRs e vínculos do banco. Com poucos produtos,
+// ler tudo e montar as telas em Go é mais simples que uma SQL para cada
+// tela, e deixa as regras de domínio num lugar só (testáveis sem banco).
+func (s *Server) carregarDados(r *http.Request) (dadosPainel, error) {
+	ctx := r.Context()
+	var d dadosPainel
+	var err error
+	if d.Issues, err = s.store.ListarIssues(ctx); err != nil {
+		return d, err
+	}
+	if d.PRs, err = s.store.ListarPRs(ctx); err != nil {
+		return d, err
+	}
+	d.Vinculos, err = s.store.ListarVinculos(ctx)
+	return d, err
 }
 
 // erroInterno loga o erro com detalhes e mostra ao usuário só uma mensagem genérica.

@@ -3,7 +3,11 @@
 {{if not .Linhas}}
 <p class="vazio">Nenhum produto configurado.</p>
 {{else}}
-<p class="legenda">Cada célula mostra quantas issues estão em andamento.</p>
+<p class="legenda">
+  Em cada célula: issues em andamento · PRs aguardando review · última atividade.
+  <span class="selo alto">▲</span> = PR de risco alto pendente.
+  Células <span class="parada-exemplo">em amarelo</span> estão paradas.
+</p>
 <table class="matriz">
   <thead>
     <tr>
@@ -17,16 +21,25 @@
     <tr>
       <th scope="row">{{.Produto.Nome}}</th>
       {{range .Celulas}}
-        {{if .Existe}}
-        <td class="celula{{if eq .EmAndamento 0}} zerada{{end}}">{{.EmAndamento}}</td>
-        {{else}}
-        <td class="celula inexistente" title="Escopo não configurado neste produto">—</td>
-        {{end}}
+        {{if .Existe}}{{template "celula" .}}
+        {{else}}<td class="celula inexistente" title="Escopo não configurado neste produto">—</td>{{end}}
       {{end}}
-      <td class="celula a-classificar{{if eq .AClassificar.EmAndamento 0}} zerada{{end}}">{{.AClassificar.EmAndamento}}</td>
+      {{template "celula" .AClassificar}}
     </tr>
     {{end}}
   </tbody>
 </table>
 {{end}}
+{{end}}
+
+{{define "celula"}}
+<td class="celula{{if .Parada}} parada{{end}}"{{if .Parada}} title="Parada: sem atividade recente e com issues em andamento"{{end}}>
+  <div class="numeros">
+    <span title="Issues em andamento">{{.EmAndamento}}</span>
+    <span class="sep">·</span>
+    <span title="PRs aguardando review">{{.AguardandoReview}} PR</span>
+    {{if .RiscoAltoPendente}}<span class="selo alto" title="PR de risco alto aguardando review">▲</span>{{end}}
+  </div>
+  <div class="atividade">{{haQuanto .UltimaAtividade}}</div>
+</td>
 {{end}}

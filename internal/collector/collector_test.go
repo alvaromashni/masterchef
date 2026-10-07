@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/alvaromashni/masterchef/internal/config"
+	"github.com/alvaromashni/masterchef/internal/escopo"
+	"github.com/alvaromashni/masterchef/internal/github"
 	"github.com/alvaromashni/masterchef/internal/linear"
 	"github.com/alvaromashni/masterchef/internal/store"
 )
@@ -32,22 +34,63 @@ func (f *linearFalso) ListIssues(_ context.Context, projectID string, desde *tim
 	return f.issues[projectID], nil
 }
 
-func carregarFixture(t *testing.T, nome string) []linear.Issue {
+// githubFalso devolve PRs e arquivos fixos por repo e conta as chamadas.
+type githubFalso struct {
+	prs              map[string][]github.PR   // repo -> PRs
+	arquivos         map[int][]github.Arquivo // número do PR -> arquivos
+	falhas           map[string]error         // repo -> erro
+	chamadasArquivos int
+}
+
+// ListPRs imita o GitHub: devolve só os PRs atualizados depois de desde.
+func (f *githubFalso) ListPRs(_ context.Context, repo string, desde *time.Time) ([]github.PR, error) {
+	if err := f.falhas[repo]; err != nil {
+		return nil, err
+	}
+	var prs []github.PR
+	for _, pr := range f.prs[repo] {
+		if desde == nil || pr.UpdatedAt.After(*desde) {
+			prs = append(prs, pr)
+		}
+	}
+	return prs, nil
+}
+
+func (f *githubFalso) ListPRsAbertos(_ context.Context, repo string) ([]github.PR, error) {
+	if err := f.falhas[repo]; err != nil {
+		return nil, err
+	}
+	var prs []github.PR
+	for _, pr := range f.prs[repo] {
+		if pr.State == "open" {
+			prs = append(prs, pr)
+		}
+	}
+	return prs, nil
+}
+
+func (f *githubFalso) ListArquivos(_ context.Context, _ string, number int) ([]github.Arquivo, error) {
+	f.chamadasArquivos++
+	return f.arquivos[number], nil
+}
+
+// carregarFixture lê um JSON de testdata/ para dentro de destino.
+func carregarFixture[T any](t *testing.T, nome string) T {
 	t.Helper()
 	dados, err := os.ReadFile(filepath.Join("testdata", nome))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var issues []linear.Issue
-	if err := json.Unmarshal(dados, &issues); err != nil {
+	var destino T
+	if err := json.Unmarshal(dados, &destino); err != nil {
 		t.Fatalf("fixture %s: %v", nome, err)
 	}
-	return issues
+	return destino
 }
 
 // montar cria um coletor com dois produtos, store SQLite num arquivo
 // temporário (sem rede) e um relógio controlado pelo teste.
-func montar(t *testing.T) (*Collector, *linearFalso, *store.Store, *time.Time) {
+func montar(t *testing.T) (*Collector, *linearFalso, *githubFalso, *store.Store, *time.Time) {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -59,41 +102,75 @@ func montar(t *testing.T) (*Collector, *linearFalso, *store.Store, *time.Time) {
 
 	fonte := &linearFalso{
 		issues: map[string][]linear.Issue{
-			"proj-x": carregarFixture(t, "issues_produto_x.json"),
-			"proj-y": carregarFixture(t, "issues_produto_y.json"),
+			"proj-x": carregarFixture[[]linear.Issue](t, "issues_produto_x.json"),
+			"proj-y": carregarFixture[[]linear.Issue](t, "issues_produto_y.json"),
+		},
+		falhas: map[string]error{},
+	}
+	gh := &githubFalso{
+		prs: map[string][]github.PR{
+			"o/x-api": carregarFixture[[]github.PR](t, "prs_produto_x_api.json"),
+		},
+		arquivos: map[int][]github.Arquivo{
+			7: {{Nome: "db/migrations/0003.sql", Additions: 20, Deletions: 2}},
 		},
 		falhas: map[string]error{},
 	}
 	cfg := &config.Config{
 		PollInterval: time.Minute,
 		Produtos: []config.Produto{
-			{Slug: "produto-x", LinearProjectID: "proj-x"},
-			{Slug: "produto-y", LinearProjectID: "proj-y"},
+			{Slug: "produto-x", LinearProjectID: "proj-x", Escopos: config.Escopos{
+				{Nome: "api", Repo: "o/x-api"}, {Nome: "front", Repo: "o/x-front"}, {Nome: "infra", Repo: "o/x-infra"},
+			}},
+			{Slug: "produto-y", LinearProjectID: "proj-y", Escopos: config.Escopos{{Nome: "app", Repo: "o/y-app"}}},
+		},
+		Risco: config.Risco{
+			LimiteLinhasDiff: 400,
+			Regras:           []config.RegraRisco{{Padrao: "**/migrations/**", Nivel: "alto", Motivo: "Altera migração"}},
 		},
 	}
-	c := New(cfg, fonte, st, logger)
+	c := New(cfg, fonte, gh, st, logger)
 
 	relogio := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
 	c.agora = func() time.Time { return relogio }
-	return c, fonte, st, &relogio
+	return c, fonte, gh, st, &relogio
 }
 
-// contagens transforma o resultado do store num mapa "produto/escopo" -> n.
+// contagens aplica a regra de escopo ao que está gravado e devolve
+// "produto/escopo" -> issues em andamento (escopo "" = a classificar).
 func contagens(t *testing.T, st *store.Store) map[string]int {
 	t.Helper()
-	cs, err := st.ContarEmAndamento(context.Background())
+	ctx := context.Background()
+	issues, err := st.ListarIssues(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
+	prs, _ := st.ListarPRs(ctx)
+	vinculos, _ := st.ListarVinculos(ctx)
+
+	escopoDoPR := map[int64]string{}
+	for _, p := range prs {
+		escopoDoPR[p.ID] = p.Scope
+	}
+	escoposPRsDaIssue := map[string][]string{}
+	for _, v := range vinculos {
+		escoposPRsDaIssue[v.IssueID] = append(escoposPRsDaIssue[v.IssueID], escopoDoPR[v.PRID])
+	}
+
 	m := map[string]int{}
-	for _, c := range cs {
-		m[c.ProductSlug+"/"+c.Escopo] = c.EmAndamento
+	for _, i := range issues {
+		if i.StateType != "started" {
+			continue
+		}
+		for _, e := range escopo.DaIssue(escoposPRsDaIssue[i.ID], i.ScopeLabel) {
+			m[i.ProductSlug+"/"+e]++
+		}
 	}
 	return m
 }
 
 func TestCiclo_PrimeiroSync(t *testing.T) {
-	c, fonte, st, relogio := montar(t)
+	c, fonte, _, st, relogio := montar(t)
 	ctx := context.Background()
 
 	if err := c.Ciclo(ctx); err != nil {
@@ -109,9 +186,10 @@ func TestCiclo_PrimeiroSync(t *testing.T) {
 
 	got := contagens(t, st)
 	quer := map[string]int{
-		"produto-x/api":   1, // PX-4 está no backlog, não conta
+		// PX-1 (label api) + PX-3 (sem label, mas o PR #7 do repo api cita
+		// "PX-3" no título: o PR tem prioridade). PX-4 está no backlog.
+		"produto-x/api":   2,
 		"produto-x/infra": 1,
-		"produto-x/":      1, // sem label → a classificar
 		"produto-y/app":   1,
 	}
 	if len(got) != len(quer) {
@@ -133,7 +211,7 @@ func TestCiclo_PrimeiroSync(t *testing.T) {
 }
 
 func TestCiclo_SegundoSyncPedeSoMudancas(t *testing.T) {
-	c, fonte, _, relogio := montar(t)
+	c, fonte, _, _, relogio := montar(t)
 	ctx := context.Background()
 
 	primeiro := *relogio
@@ -154,7 +232,7 @@ func TestCiclo_SegundoSyncPedeSoMudancas(t *testing.T) {
 }
 
 func TestCiclo_ErroEmUmProdutoNaoDerrubaOsOutros(t *testing.T) {
-	c, fonte, st, relogio := montar(t)
+	c, fonte, _, st, relogio := montar(t)
 	ctx := context.Background()
 
 	// Um sync ok antes, para ver que last_sync_ok NÃO avança no sync com erro.
@@ -197,22 +275,128 @@ func TestCiclo_ErroEmUmProdutoNaoDerrubaOsOutros(t *testing.T) {
 	}
 }
 
-func TestCiclo_IssueMudaDeEscopo(t *testing.T) {
-	c, fonte, st, relogio := montar(t)
+func TestCiclo_IssueMudaDeEscopoPelaLabel(t *testing.T) {
+	c, fonte, _, st, relogio := montar(t)
 	ctx := context.Background()
 	if err := c.Ciclo(ctx); err != nil {
 		t.Fatal(err)
 	}
 
-	// PX-3 ganhou a label scope:api: sai de "a classificar" e entra em api.
+	// PX-2 trocou a label de infra para front.
 	*relogio = relogio.Add(time.Minute)
-	fonte.issues["proj-x"][2].Labels = []string{"scope:api"}
+	fonte.issues["proj-x"][1].Labels = []string{"scope:front"}
 	if err := c.Ciclo(ctx); err != nil {
 		t.Fatal(err)
 	}
 
 	got := contagens(t, st)
-	if got["produto-x/"] != 0 || got["produto-x/api"] != 2 {
-		t.Errorf("contagens = %v; esperava a classificar=0 e api=2", got)
+	if got["produto-x/infra"] != 0 || got["produto-x/front"] != 1 {
+		t.Errorf("contagens = %v; esperava infra=0 e front=1", got)
+	}
+}
+
+func TestCiclo_PRGanhaRiscoEVinculo(t *testing.T) {
+	c, _, _, st, _ := montar(t)
+	ctx := context.Background()
+	if err := c.Ciclo(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	prs, err := st.ListarPRs(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(prs) != 1 {
+		t.Fatalf("esperava 1 PR gravado, veio %d", len(prs))
+	}
+	pr := prs[0]
+	if pr.ProductSlug != "produto-x" || pr.Scope != "api" {
+		t.Errorf("PR no lugar errado: %s/%s", pr.ProductSlug, pr.Scope)
+	}
+	if pr.RiskLevel != "alto" || len(pr.RiskReasons) == 0 || !strings.Contains(pr.RiskReasons[0], "Altera migração") {
+		t.Errorf("risco = %s %v, esperava alto por migração", pr.RiskLevel, pr.RiskReasons)
+	}
+	if pr.Additions != 20 || pr.Deletions != 2 {
+		t.Errorf("linhas = +%d -%d, esperava +20 -2 (soma dos arquivos)", pr.Additions, pr.Deletions)
+	}
+
+	vinculos, _ := st.ListarVinculos(ctx)
+	if len(vinculos) != 1 || vinculos[0].IssueID != "x-3" || vinculos[0].PRID != 501 {
+		t.Errorf("vínculos = %+v, esperava x-3 ↔ 501", vinculos)
+	}
+}
+
+func TestCiclo_PRSemMudancaNaoBuscaArquivosDeNovo(t *testing.T) {
+	c, _, gh, _, relogio := montar(t)
+	ctx := context.Background()
+	if err := c.Ciclo(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if gh.chamadasArquivos != 1 {
+		t.Fatalf("1º ciclo buscou arquivos %d vezes, esperava 1", gh.chamadasArquivos)
+	}
+
+	*relogio = relogio.Add(time.Minute)
+	if err := c.Ciclo(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if gh.chamadasArquivos != 1 {
+		t.Errorf("PR sem mudança não deveria buscar arquivos de novo (chamadas = %d)", gh.chamadasArquivos)
+	}
+
+	// Um push muda o updated_at: agora sim busca de novo.
+	*relogio = relogio.Add(time.Minute)
+	gh.prs["o/x-api"][0].UpdatedAt = *relogio
+	if err := c.Ciclo(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if gh.chamadasArquivos != 2 {
+		t.Errorf("PR alterado deveria buscar arquivos de novo (chamadas = %d)", gh.chamadasArquivos)
+	}
+}
+
+func TestCiclo_ErroEmUmRepoNaoDerrubaOCiclo(t *testing.T) {
+	c, _, gh, st, _ := montar(t)
+	ctx := context.Background()
+	gh.falhas["o/x-front"] = errors.New("HTTP 404")
+
+	if err := c.Ciclo(ctx); err != nil {
+		t.Fatalf("Ciclo não deveria falhar por causa de um repo: %v", err)
+	}
+	prs, _ := st.ListarPRs(ctx)
+	if len(prs) != 1 {
+		t.Errorf("o PR do repo que funcionou deveria ter sido gravado")
+	}
+	estado, _ := st.LerEstadoSync(ctx)
+	if !strings.Contains(estado.UltimoErro, "o/x-front") || !estado.UltimoOK.IsZero() {
+		t.Errorf("erro = %q, ok = %v; esperava erro do repo e last_sync_ok vazio", estado.UltimoErro, estado.UltimoOK)
+	}
+}
+
+func TestCiclo_PrimeiroSyncLimitaPRsFechadosAntigos(t *testing.T) {
+	c, _, gh, st, relogio := montar(t)
+	ctx := context.Background()
+
+	velho := relogio.Add(-JanelaPrimeiroSync - time.Hour)
+	recente := relogio.Add(-JanelaPrimeiroSync + time.Hour)
+	gh.prs["o/x-front"] = []github.PR{
+		{ID: 1, Number: 1, State: "merged", UpdatedAt: velho},   // fora da janela: não entra
+		{ID: 2, Number: 2, State: "merged", UpdatedAt: recente}, // dentro da janela: entra
+		{ID: 3, Number: 3, State: "open", UpdatedAt: velho},     // aberto antigo: entra sempre
+	}
+
+	if err := c.Ciclo(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	prs, _ := st.ListarPRs(ctx)
+	gravados := map[int]bool{}
+	for _, p := range prs {
+		if p.Scope == "front" {
+			gravados[p.Number] = true
+		}
+	}
+	if gravados[1] || !gravados[2] || !gravados[3] {
+		t.Errorf("PRs do front gravados = %v; esperava #2 e #3, sem o #1 (mergeado há mais de 45 dias)", gravados)
 	}
 }

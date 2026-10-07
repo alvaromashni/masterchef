@@ -27,6 +27,7 @@ body {
 }
 
 .topo a { color: var(--texto); text-decoration: none; }
+.topo nav { display: flex; gap: 1.2rem; }
 .topo nav a:hover { color: var(--destaque); }
 .marca { font-weight: 700; }
 
@@ -56,3 +57,27 @@ h1 { font-size: 1.4rem; margin-top: 0; }
 .celula { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
 .zerada, .inexistente { color: var(--suave); }
 .a-classificar { background: #fafafa; }
+
+/* Fase 2: células com mais informação, selos de risco e fila de review */
+.numeros { display: flex; gap: 0.35rem; justify-content: center; align-items: baseline; }
+.numeros .sep { color: var(--suave); }
+.atividade { color: var(--suave); font-size: 0.75rem; }
+.parada, .parada-exemplo { background: #fff6d6; }
+
+.selo { display: inline-block; padding: 0 0.4rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+.selo.alto { background: #fdecea; color: #a1271a; }
+.selo.medio { background: #fff3cd; color: #7a5a00; }
+.selo.baixo { background: #e8f5e9; color: #256029; }
+
+.fila { list-style: none; padding: 0; }
+.item { background: #fff; border: 1px solid var(--borda); border-left-width: 4px; border-radius: 6px; padding: 0.8rem 1rem; margin-bottom: 0.8rem; }
+.item.risco-alto { border-left-color: #d93025; }
+.item.risco-medio { border-left-color: #e0a800; }
+.item.risco-baixo { border-left-color: #34a853; }
+.item-topo { display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; }
+.item-meta { color: var(--suave); font-size: 0.85rem; margin: 0.2rem 0; }
+.motivos { margin: 0.3rem 0; padding-left: 1.2rem; font-size: 0.9rem; }
+.issue { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px dashed var(--borda); }
+.estado { color: var(--suave); font-size: 0.85rem; }
+.criterios { list-style: none; padding-left: 0.3rem; margin: 0.3rem 0; font-size: 0.9rem; }
+.aviso-sem-issue { color: #a1271a; font-size: 0.9rem; }
