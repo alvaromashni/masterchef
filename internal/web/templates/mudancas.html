@@ -1,0 +1,33 @@
+{{define "conteudo"}}
+<h1>O que mudou</h1>
+<div id="mudancas">
+{{if not .Total}}
+  <p class="vazio">Nada novo desde a última vez que você marcou como visto.</p>
+{{else}}
+  <form class="marcar-visto" method="post" action="/mudancas/visto"
+        hx-post="/mudancas/visto" hx-target="#mudancas" hx-swap="outerHTML">
+    <input type="hidden" name="ate" value="{{rfc3339 .VistoAte}}">
+    <span>{{.Total}} {{if eq .Total 1}}mudança{{else}}mudanças{{end}} desde a sua última visita.</span>
+    <button type="submit">Marcar como visto</button>
+  </form>
+
+  {{range .Produtos}}
+  <section class="produto">
+    <h2>{{.Produto.Nome}}</h2>
+    {{range .Escopos}}
+    <h3>{{escopo .Nome}}</h3>
+    <ul class="eventos">
+      {{range .Eventos}}
+      <li class="evento evento-{{.Kind}}">
+        <span class="quando" title="{{dataHora .OccurredAt}}">{{haQuanto .OccurredAt}}</span>
+        <a href="{{.URL}}" target="_blank" rel="noopener">{{.Ref}}</a>
+        <span>{{.Summary}}</span>
+      </li>
+      {{end}}
+    </ul>
+    {{end}}
+  </section>
+  {{end}}
+{{end}}
+</div>
+{{end}}

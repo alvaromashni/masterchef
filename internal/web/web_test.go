@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -8,12 +9,19 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alvaromashni/masterchef/internal/config"
 	"github.com/alvaromashni/masterchef/internal/store"
 )
 
 func novoServidor(t *testing.T) http.Handler {
+	t.Helper()
+	h, _ := novoServidorComStore(t)
+	return h
+}
+
+func novoServidorComStore(t *testing.T) (http.Handler, *store.Store) {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	st, err := store.Open(filepath.Join(t.TempDir(), "teste.db"), logger)
@@ -29,7 +37,7 @@ func novoServidor(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	return s.Handler()
+	return s.Handler(), st
 }
 
 func TestIndex(t *testing.T) {
@@ -68,5 +76,66 @@ func TestFilaDeReviewVazia(t *testing.T) {
 	novoServidor(t).ServeHTTP(rec, httptest.NewRequest("GET", "/prs", nil))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Nenhum PR aberto") {
 		t.Errorf("status = %d; corpo sem a mensagem de fila vazia", rec.Code)
+	}
+}
+
+func TestMudancas_AbrirNaoMarcaComoVisto(t *testing.T) {
+	h, st := novoServidorComStore(t)
+	ctx := context.Background()
+	quando := time.Date(2026, 10, 7, 10, 0, 0, 0, time.UTC)
+	err := st.SalvarSync(ctx, store.SyncResultado{Iniciado: quando, Eventos: []store.Evento{
+		{OccurredAt: quando, ProductSlug: "produto-x", Scope: "api", Kind: store.EventoPRMergeado, Ref: "o/r#1", Summary: "Mergeado: login", URL: "u"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 2; i++ { // abrir duas vezes: continua lá
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("GET", "/mudancas", nil))
+		corpo := rec.Body.String()
+		if rec.Code != http.StatusOK || !strings.Contains(corpo, "Mergeado: login") || !strings.Contains(corpo, "2026-10-07T10:00:00Z") {
+			t.Fatalf("abertura %d: status %d, evento ou data ausente no corpo", i+1, rec.Code)
+		}
+	}
+	if v, _ := st.UltimaVisita(ctx); !v.IsZero() {
+		t.Errorf("abrir a página não deveria gravar last_visit (gravou %v)", v)
+	}
+}
+
+func TestMudancas_MarcarComoVisto(t *testing.T) {
+	h, st := novoServidorComStore(t)
+	ctx := context.Background()
+	ate := "2026-10-07T10:00:00Z"
+
+	marcar := func(valor string, htmx bool) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", "/mudancas/visto", strings.NewReader("ate="+valor))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if htmx {
+			req.Header.Set("HX-Request", "true")
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+
+	rec := marcar(ate, true)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Tudo marcado como visto") {
+		t.Fatalf("htmx: status %d, corpo %q", rec.Code, rec.Body.String())
+	}
+	if v, _ := st.UltimaVisita(ctx); v.Format(time.RFC3339) != ate {
+		t.Errorf("last_visit = %v, esperava %s", v, ate)
+	}
+
+	// Um formulário antigo não volta last_visit no tempo.
+	if rec := marcar("2026-10-01T00:00:00Z", false); rec.Code != http.StatusSeeOther {
+		t.Errorf("sem htmx deveria redirecionar (303), veio %d", rec.Code)
+	}
+	if v, _ := st.UltimaVisita(ctx); v.Format(time.RFC3339) != ate {
+		t.Errorf("last_visit voltou no tempo para %v", v)
+	}
+
+	if rec := marcar("ontem", true); rec.Code != http.StatusBadRequest {
+		t.Errorf("data inválida deveria dar 400, veio %d", rec.Code)
 	}
 }

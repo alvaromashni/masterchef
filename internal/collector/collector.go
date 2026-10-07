@@ -35,9 +35,9 @@ type FontePRs interface {
 // Gravador é o que o coletor precisa do store.
 type Gravador interface {
 	UltimoSyncOK(ctx context.Context) (*time.Time, error)
-	PRsUpdatedAt(ctx context.Context) (map[int64]time.Time, error)
 	ListarIssues(ctx context.Context) ([]store.Issue, error)
 	ListarPRs(ctx context.Context) ([]store.PR, error)
+	ListarVinculos(ctx context.Context) ([]store.Vinculo, error)
 	SalvarSync(ctx context.Context, r store.SyncResultado) error
 }
 
@@ -105,7 +105,8 @@ func (c *Collector) cicloComLog(ctx context.Context) {
 //  1. issues de cada produto no Linear;
 //  2. PRs de cada repo no GitHub, com risco calculado para os novos/alterados;
 //  3. vínculos issue ↔ PR;
-//  4. grava tudo numa transação e atualiza last_sync_ok / last_sync_error.
+//  4. eventos (comparando com o banco ANTES de gravar);
+//  5. grava tudo numa transação e atualiza last_sync_ok / last_sync_error.
 //
 // Um produto ou repo com erro não derruba os outros: o erro é anotado, os
 // demais seguem e, no fim, tudo que deu certo é gravado. Mas last_sync_ok só
@@ -121,6 +122,12 @@ func (c *Collector) Ciclo(ctx context.Context) error {
 		return err
 	}
 
+	// Foto do banco antes de qualquer gravação: base para saber o que mudou.
+	antes, vinculosAntes, err := c.lerEstadoAnterior(ctx)
+	if err != nil {
+		return err
+	}
+
 	resultado := store.SyncResultado{Iniciado: inicio}
 	anotarErro := func(onde string, err error) {
 		c.logger.Error("falha na coleta", "onde", onde, "erro", err)
@@ -128,18 +135,63 @@ func (c *Collector) Ciclo(ctx context.Context) error {
 	}
 
 	issuesNovas := c.coletarIssues(ctx, desde, &resultado, anotarErro)
-	prsNovos, err := c.coletarPRs(ctx, desde, &resultado, anotarErro)
-	if err != nil {
-		return err
-	}
+	prsNovos := c.coletarPRs(ctx, desde, antes.PRs, &resultado, anotarErro)
+	resultado.Vinculos = calcularVinculos(antes, issuesNovas, prsNovos)
 
-	vinculos, err := c.calcularVinculos(ctx, issuesNovas, prsNovos)
-	if err != nil {
-		return err
+	// Primeiro sync (nunca houve um bem-sucedido): só popular o banco, sem
+	// eventos. Senão a tela "o que mudou" viria com o projeto inteiro.
+	if desde != nil {
+		escopos := escoposDasIssues(resultado.Issues, antes.PRs, resultado.PRs, append(vinculosAntes, resultado.Vinculos...))
+		resultado.Eventos = GerarEventos(antes, resultado.Issues, resultado.PRs, escopos, inicio)
 	}
-	resultado.Vinculos = vinculos
 
 	return c.store.SalvarSync(ctx, resultado)
+}
+
+// lerEstadoAnterior lê issues, PRs e vínculos que já estão no banco.
+func (c *Collector) lerEstadoAnterior(ctx context.Context) (EstadoAnterior, []store.Vinculo, error) {
+	antes := EstadoAnterior{Issues: map[string]store.Issue{}, PRs: map[int64]store.PR{}}
+
+	issues, err := c.store.ListarIssues(ctx)
+	if err != nil {
+		return antes, nil, err
+	}
+	for _, i := range issues {
+		antes.Issues[i.ID] = i
+	}
+	prs, err := c.store.ListarPRs(ctx)
+	if err != nil {
+		return antes, nil, err
+	}
+	for _, p := range prs {
+		antes.PRs[p.ID] = p
+	}
+	vinculos, err := c.store.ListarVinculos(ctx)
+	return antes, vinculos, err
+}
+
+// escoposDasIssues aplica a regra de escopo às issues que chegaram neste
+// ciclo, usando os PRs e vínculos mais recentes (banco + ciclo atual).
+func escoposDasIssues(issues []store.Issue, prsAntes map[int64]store.PR, prsNovos []store.PR, vinculos []store.Vinculo) map[string][]string {
+	escopoDoPR := map[int64]string{}
+	for id, p := range prsAntes {
+		escopoDoPR[id] = p.Scope
+	}
+	for _, p := range prsNovos {
+		escopoDoPR[p.ID] = p.Scope
+	}
+	escoposDosPRs := map[string][]string{}
+	for _, v := range vinculos {
+		if e, ok := escopoDoPR[v.PRID]; ok {
+			escoposDosPRs[v.IssueID] = append(escoposDosPRs[v.IssueID], e)
+		}
+	}
+
+	resultado := map[string][]string{}
+	for _, i := range issues {
+		resultado[i.ID] = escopo.DaIssue(escoposDosPRs[i.ID], i.ScopeLabel)
+	}
+	return resultado
 }
 
 // coletarIssues busca as issues de cada produto e as coloca em resultado.
@@ -163,12 +215,7 @@ func (c *Collector) coletarIssues(ctx context.Context, desde *time.Time, resulta
 // coletarPRs busca os PRs de cada repo configurado. Só para PRs novos ou
 // alterados (updated_at diferente do gravado) busca os arquivos e calcula
 // o risco: isso economiza chamadas à API, que tem limite por hora.
-func (c *Collector) coletarPRs(ctx context.Context, desde *time.Time, resultado *store.SyncResultado, anotarErro func(string, error)) ([]PRRef, error) {
-	gravados, err := c.store.PRsUpdatedAt(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+func (c *Collector) coletarPRs(ctx context.Context, desde *time.Time, gravados map[int64]store.PR, resultado *store.SyncResultado, anotarErro func(string, error)) []PRRef {
 	var refs []PRRef
 	for _, p := range c.produtos {
 		for _, e := range p.Escopos {
@@ -178,7 +225,7 @@ func (c *Collector) coletarPRs(ctx context.Context, desde *time.Time, resultado 
 				continue
 			}
 			for _, pr := range prs {
-				if t, ok := gravados[pr.ID]; ok && t.Equal(pr.UpdatedAt) {
+				if antigo, ok := gravados[pr.ID]; ok && antigo.UpdatedAt.Equal(pr.UpdatedAt) {
 					continue // nada mudou desde a última vez
 				}
 				arquivos, err := c.github.ListArquivos(ctx, e.Repo, pr.Number)
@@ -191,7 +238,7 @@ func (c *Collector) coletarPRs(ctx context.Context, desde *time.Time, resultado 
 			}
 		}
 	}
-	return refs, nil
+	return refs
 }
 
 // buscarPRs traz os PRs alterados desde o último sync. No primeiro sync
@@ -227,25 +274,16 @@ func (c *Collector) buscarPRs(ctx context.Context, repo string, desde *time.Time
 // recalcula os vínculos. Os dados novos substituem os antigos porque trazem
 // mais informação (anexos das issues e corpo dos PRs não ficam no banco).
 // Vínculos só são adicionados, nunca removidos.
-func (c *Collector) calcularVinculos(ctx context.Context, issuesNovas []IssueRef, prsNovos []PRRef) ([]store.Vinculo, error) {
-	issuesBanco, err := c.store.ListarIssues(ctx)
-	if err != nil {
-		return nil, err
-	}
-	prsBanco, err := c.store.ListarPRs(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+func calcularVinculos(antes EstadoAnterior, issuesNovas []IssueRef, prsNovos []PRRef) []store.Vinculo {
 	issues := map[string]IssueRef{}
-	for _, i := range issuesBanco {
+	for _, i := range antes.Issues {
 		issues[i.ID] = IssueRef{ID: i.ID, Identifier: i.Identifier, Produto: i.ProductSlug}
 	}
 	for _, i := range issuesNovas {
 		issues[i.ID] = i
 	}
 	prs := map[int64]PRRef{}
-	for _, p := range prsBanco {
+	for _, p := range antes.PRs {
 		prs[p.ID] = PRRef{ID: p.ID, Produto: p.ProductSlug, URL: p.URL, Branch: p.Branch, Title: p.Title}
 	}
 	for _, p := range prsNovos {
@@ -265,7 +303,7 @@ func (c *Collector) calcularVinculos(ctx context.Context, issuesNovas []IssueRef
 	for _, v := range Vincular(listaIssues, listaPRs) {
 		vinculos = append(vinculos, store.Vinculo{IssueID: v.IssueID, PRID: v.PRID})
 	}
-	return vinculos, nil
+	return vinculos
 }
 
 // issueParaStore converte a issue do Linear para a linha do banco.

@@ -6,6 +6,7 @@
 <p class="legenda">
   Em cada célula: issues em andamento · PRs aguardando review · última atividade.
   <span class="selo alto">▲</span> = PR de risco alto pendente.
+  <span class="selo novo">3 novas</span> = mudanças ainda não vistas.
   Células <span class="parada-exemplo">em amarelo</span> estão paradas.
 </p>
 <table class="matriz">
@@ -40,6 +41,7 @@
     <span title="PRs aguardando review">{{.AguardandoReview}} PR</span>
     {{if .RiscoAltoPendente}}<span class="selo alto" title="PR de risco alto aguardando review">▲</span>{{end}}
   </div>
+  {{if .NaoVistas}}<a class="selo novo" href="/mudancas" title="Mudanças desde a última vez que você marcou como visto">{{.NaoVistas}} {{if eq .NaoVistas 1}}nova{{else}}novas{{end}}</a>{{end}}
   <div class="atividade">{{haQuanto .UltimaAtividade}}</div>
 </td>
 {{end}}
