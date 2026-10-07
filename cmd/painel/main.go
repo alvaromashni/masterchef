@@ -18,6 +18,7 @@ import (
 
 	"github.com/alvaromashni/masterchef/internal/collector"
 	"github.com/alvaromashni/masterchef/internal/config"
+	"github.com/alvaromashni/masterchef/internal/github"
 	"github.com/alvaromashni/masterchef/internal/linear"
 	"github.com/alvaromashni/masterchef/internal/store"
 	"github.com/alvaromashni/masterchef/internal/web"
@@ -70,7 +71,10 @@ func run(logger *slog.Logger) error {
 
 	// O coletor roda em paralelo ao servidor: um ciclo agora e outro a cada
 	// poll_interval. Ele para sozinho quando ctx é cancelado (Ctrl+C).
-	coletor := collector.New(cfg, linear.New(cfg.LinearAPIKey, ""), st, logger)
+	coletor := collector.New(cfg,
+		linear.New(cfg.LinearAPIKey, ""),
+		github.New(cfg.GitHubToken, "", logger),
+		st, logger)
 	go coletor.Run(ctx)
 
 	// ListenAndServe bloqueia, então roda numa goroutine e avisa erros pelo canal.

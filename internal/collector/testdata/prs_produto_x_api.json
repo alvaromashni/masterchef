@@ -1,0 +1,8 @@
+[
+  {
+    "ID": 501, "Repo": "o/x-api", "Number": 7, "Title": "PX-3: migração de usuários",
+    "Body": "", "Branch": "px-3-migracao", "State": "open", "Draft": false,
+    "URL": "https://github.com/o/x-api/pull/7",
+    "CreatedAt": "2026-10-03T10:00:00Z", "UpdatedAt": "2026-10-04T10:00:00Z"
+  }
+]

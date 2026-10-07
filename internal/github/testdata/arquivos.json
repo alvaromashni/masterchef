@@ -1,0 +1,4 @@
+[
+  { "filename": "db/migrations/0002.sql", "additions": 10, "deletions": 0 },
+  { "filename": "internal/repo_test.go", "additions": 30, "deletions": 5 }
+]

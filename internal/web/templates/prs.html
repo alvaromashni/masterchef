@@ -1,0 +1,45 @@
+{{define "conteudo"}}
+<h1>Fila de review</h1>
+{{if not .}}
+<p class="vazio">Nenhum PR aberto aguardando review.</p>
+{{else}}
+<p class="legenda">PRs abertos (sem rascunhos), do maior risco para o menor e, no mesmo risco, do mais antigo para o mais novo.</p>
+<ol class="fila">
+  {{range .}}
+  <li class="item risco-{{.PR.RiskLevel}}">
+    <div class="item-topo">
+      <span class="selo {{.PR.RiskLevel}}">{{risco .PR.RiskLevel}}</span>
+      <a href="{{.PR.URL}}" target="_blank" rel="noopener">{{.PR.Repo}}#{{.PR.Number}}</a>
+      <strong>{{.PR.Title}}</strong>
+    </div>
+    <div class="item-meta">
+      aberto {{haQuanto .PR.CreatedAt}} · +{{.PR.Additions}} −{{.PR.Deletions}} · branch <code>{{.PR.Branch}}</code>
+    </div>
+    {{if .PR.RiskReasons}}
+    <ul class="motivos">
+      {{range .PR.RiskReasons}}<li>{{.}}</li>{{end}}
+    </ul>
+    {{end}}
+
+    {{if .Issues}}
+      {{range .Issues}}
+      <div class="issue">
+        <a href="{{.Issue.URL}}" target="_blank" rel="noopener">{{.Issue.Identifier}}</a>
+        {{.Issue.Title}} <span class="estado">{{.Issue.StateName}}</span>
+        {{if .Criterios}}
+        <ul class="criterios">
+          {{range .Criterios}}<li><input type="checkbox" disabled{{if .Marcado}} checked{{end}}> {{.Texto}}</li>{{end}}
+        </ul>
+        {{else}}
+        <p class="vazio">Sem critérios de aceite (checkboxes) na descrição.</p>
+        {{end}}
+      </div>
+      {{end}}
+    {{else}}
+    <p class="aviso-sem-issue">Nenhuma issue vinculada a este PR.</p>
+    {{end}}
+  </li>
+  {{end}}
+</ol>
+{{end}}
+{{end}}

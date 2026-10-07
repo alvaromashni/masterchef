@@ -4,14 +4,35 @@ Painel local e **somente leitura** que mostra o estado real dos produtos a parti
 Linear, do GitHub e dos Markdown do repo central. Veja o [CONTEXT.md](CONTEXT.md) para
 a visão completa e as regras do projeto.
 
-> Status: **Fase 1**. O painel coleta as issues do Linear e mostra a matriz
-> produto × escopo com a contagem de issues em andamento. GitHub entra na Fase 2.
+> Status: **Fase 2**. O painel coleta issues do Linear e PRs do GitHub, calcula o
+> risco de cada PR, vincula issues a PRs e mostra a matriz e a fila de review.
 
-## Como uma issue cai numa coluna
+## Telas
 
-Por enquanto só a label do Linear decide: uma issue com a label `scope:api` vai para a
-coluna `api`. Sem label (ou com um escopo que o produto não tem), ela vai para
-**a classificar**. "Em andamento" = issues cujo estado no Linear é do tipo *started*.
+- **`/` Matriz**: produto × escopo. Cada célula mostra issues em andamento, PRs
+  aguardando review (abertos e não rascunho), um ▲ se algum desses PRs tem risco
+  alto e há quanto tempo foi a última atividade. Células sem atividade há mais que
+  `stale_after` e com issues em andamento ficam amarelas ("paradas").
+- **`/prs` Fila de review**: PRs abertos e não rascunho, do maior risco para o
+  menor e, no mesmo risco, do mais antigo para o mais novo. Cada PR mostra os
+  motivos do risco e as issues vinculadas com os critérios de aceite
+  (checkboxes `- [ ]` da descrição da issue).
+
+## Regras
+
+**Escopo de uma issue** (em qual coluna ela aparece):
+1. Se tem PR vinculado, vale o escopo do repo do PR (PRs em dois repos = duas colunas).
+2. Senão, a label `scope:<nome>` do Linear.
+3. Senão (ou se o escopo não existe no produto), **a classificar**.
+
+**Vínculo issue ↔ PR**: o identificador da issue (ex.: `ABC-123`) aparece na branch,
+no título ou no corpo do PR, ou a issue tem no Linear um anexo com a URL do PR.
+A branch é comparada sem diferenciar maiúsculas, porque o Linear sugere branches em
+minúsculas (`alvaro/abc-123-login`).
+
+**Risco de um PR**: `alto` se algum arquivo casa com uma regra alta; senão `medio` se
+casa com uma regra média, se o diff passa de `limite_linhas_diff` ou se nenhum
+arquivo casa com `padroes_de_teste`; senão `baixo`. A tela sempre mostra os motivos.
 
 ## Requisitos
 

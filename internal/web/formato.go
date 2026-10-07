@@ -31,3 +31,16 @@ func haQuanto(agora, t time.Time) string {
 		return fmt.Sprintf("há %d dias", int(d.Hours()/24))
 	}
 }
+
+// textoRisco é o rótulo do nível de risco na tela.
+func textoRisco(nivel string) string {
+	switch nivel {
+	case "alto":
+		return "Risco alto"
+	case "medio":
+		return "Risco médio"
+	case "baixo":
+		return "Risco baixo"
+	}
+	return nivel
+}
