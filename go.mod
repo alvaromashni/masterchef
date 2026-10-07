@@ -1,4 +1,4 @@
-module github.com/alvaromashni/painel
+module github.com/alvaromashni/masterchef
 
 go 1.26.0
 

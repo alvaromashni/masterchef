@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/alvaromashni/painel/internal/store"
+	"github.com/alvaromashni/masterchef/internal/store"
 )
 
 // Templates e CSS ficam embutidos no binário (mesmo motivo das migrações:

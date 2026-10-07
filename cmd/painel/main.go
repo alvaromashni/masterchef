@@ -16,9 +16,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alvaromashni/painel/internal/config"
-	"github.com/alvaromashni/painel/internal/store"
-	"github.com/alvaromashni/painel/internal/web"
+	"github.com/alvaromashni/masterchef/internal/config"
+	"github.com/alvaromashni/masterchef/internal/store"
+	"github.com/alvaromashni/masterchef/internal/web"
 )
 
 func main() {
