@@ -400,3 +400,44 @@ func TestCiclo_PrimeiroSyncLimitaPRsFechadosAntigos(t *testing.T) {
 		t.Errorf("PRs do front gravados = %v; esperava #2 e #3, sem o #1 (mergeado há mais de 45 dias)", gravados)
 	}
 }
+
+func TestCiclo_Eventos(t *testing.T) {
+	c, fonte, gh, st, relogio := montar(t)
+	ctx := context.Background()
+
+	// Primeiro sync: popula o banco, mas não gera eventos.
+	if err := c.Ciclo(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if eventos, _ := st.EventosDesde(ctx, time.Time{}); len(eventos) != 0 {
+		t.Fatalf("primeiro sync não deveria gerar eventos, gerou %d", len(eventos))
+	}
+
+	// Segundo sync: PX-1 foi para revisão e o PR #7 foi mergeado.
+	*relogio = relogio.Add(5 * time.Minute)
+	fonte.issues["proj-x"][0].StateName = "In Review"
+	gh.prs["o/x-api"][0].State = "merged"
+	gh.prs["o/x-api"][0].UpdatedAt = *relogio
+	if err := c.Ciclo(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	eventos, err := st.EventosDesde(ctx, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, e := range eventos {
+		got = append(got, e.Kind+" "+e.Ref+" ["+e.Scope+"] "+e.Summary)
+		if !e.OccurredAt.Equal(*relogio) {
+			t.Errorf("occurred_at = %v, esperava o início do ciclo %v", e.OccurredAt, *relogio)
+		}
+	}
+	quer := []string{
+		"issue_state_changed PX-1 [api] In Progress → In Review",
+		"pr_merged o/x-api#7 [api] Mergeado: PX-3: migração de usuários",
+	}
+	if strings.Join(got, "\n") != strings.Join(quer, "\n") {
+		t.Errorf("eventos:\n%s\nesperava:\n%s", strings.Join(got, "\n"), strings.Join(quer, "\n"))
+	}
+}

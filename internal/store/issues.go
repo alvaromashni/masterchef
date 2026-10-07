@@ -34,6 +34,7 @@ type SyncResultado struct {
 	Issues   []Issue
 	PRs      []PR
 	Vinculos []Vinculo
+	Eventos  []Evento
 	// Iniciado é quando o ciclo começou. Vira last_sync_ok se não houve erro.
 	Iniciado time.Time
 	// Erros de produtos que falharam. Se houver algum, last_sync_ok NÃO avança.
@@ -61,6 +62,11 @@ func (s *Store) SalvarSync(ctx context.Context, r SyncResultado) error {
 	}
 	for _, v := range r.Vinculos {
 		if err := inserirVinculo(ctx, tx, v); err != nil {
+			return err
+		}
+	}
+	for _, e := range r.Eventos {
+		if err := inserirEvento(ctx, tx, e); err != nil {
 			return err
 		}
 	}

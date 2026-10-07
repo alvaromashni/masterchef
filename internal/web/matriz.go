@@ -34,6 +34,7 @@ type Celula struct {
 	RiscoAltoPendente bool      // algum desses PRs tem risco alto
 	UltimaAtividade   time.Time // mudança mais recente de issue ou PR da célula
 	Parada            bool      // sem atividade há mais que stale_after, com issues em andamento
+	NaoVistas         int       // eventos desde a última vez que o dono marcou "visto"
 }
 
 // aClassificar é a chave interna da coluna "a classificar".
@@ -44,6 +45,8 @@ type dadosPainel struct {
 	Issues   []store.Issue
 	PRs      []store.PR
 	Vinculos []store.Vinculo
+	// NaoVistos são os eventos depois de last_visit.
+	NaoVistos []store.Evento
 }
 
 // aguardaReview diz se um PR está na fila de review: aberto e não rascunho.
@@ -90,6 +93,10 @@ func montarMatriz(produtos []config.Produto, d dadosPainel, staleAfter time.Dura
 				c.RiscoAltoPendente = true
 			}
 		}
+	}
+
+	for _, e := range d.NaoVistos {
+		celula(e.ProductSlug, e.Scope).NaoVistas++
 	}
 
 	escoposPorIssue := escoposDosPRsPorIssue(d)
@@ -162,6 +169,7 @@ func somarCelula(destino *Celula, c Celula) {
 	destino.EmAndamento += c.EmAndamento
 	destino.AguardandoReview += c.AguardandoReview
 	destino.RiscoAltoPendente = destino.RiscoAltoPendente || c.RiscoAltoPendente
+	destino.NaoVistas += c.NaoVistas
 	registrarAtividade(destino, c.UltimaAtividade)
 }
 

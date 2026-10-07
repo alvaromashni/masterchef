@@ -81,3 +81,18 @@ h1 { font-size: 1.4rem; margin-top: 0; }
 .estado { color: var(--suave); font-size: 0.85rem; }
 .criterios { list-style: none; padding-left: 0.3rem; margin: 0.3rem 0; font-size: 0.9rem; }
 .aviso-sem-issue { color: #a1271a; font-size: 0.9rem; }
+
+/* Fase 3: o que mudou */
+.selo.novo { background: #e3ecff; color: var(--destaque); text-decoration: none; }
+.celula .selo.novo { margin-top: 0.2rem; }
+.marcar-visto { display: flex; gap: 1rem; align-items: center; background: #fff; border: 1px solid var(--borda); border-radius: 6px; padding: 0.6rem 1rem; }
+.marcar-visto button { margin-left: auto; padding: 0.35rem 0.9rem; border: 1px solid var(--destaque); background: var(--destaque); color: #fff; border-radius: 4px; cursor: pointer; }
+.produto h2 { font-size: 1.15rem; margin-top: 1.5rem; }
+.produto h3 { font-size: 0.95rem; color: var(--suave); margin: 0.8rem 0 0.3rem; text-transform: lowercase; }
+.eventos { list-style: none; padding: 0; margin: 0; background: #fff; border: 1px solid var(--borda); border-radius: 6px; }
+.evento { display: flex; gap: 0.7rem; padding: 0.45rem 0.8rem; border-top: 1px solid var(--borda); border-left: 3px solid transparent; }
+.evento:first-child { border-top: 0; }
+.evento .quando { color: var(--suave); min-width: 7rem; font-size: 0.85rem; }
+.evento-pr_merged { border-left: 3px solid #34a853; }
+.evento-pr_closed { border-left: 3px solid #9aa0a6; }
+.evento-pr_opened { border-left: 3px solid var(--destaque); }

@@ -44,9 +44,16 @@ func New(cfg *config.Config, st *store.Store, logger *slog.Logger) (*Server, err
 		"dataHora": dataHora,
 		"haQuanto": func(t time.Time) string { return haQuanto(time.Now(), t) },
 		"risco":    textoRisco,
+		"rfc3339":  func(t time.Time) string { return t.UTC().Format(time.RFC3339) },
+		"escopo": func(nome string) string {
+			if nome == "" {
+				return "a classificar"
+			}
+			return nome
+		},
 	}
 
-	for _, pagina := range []string{"index.html", "prs.html"} {
+	for _, pagina := range []string{"index.html", "prs.html", "mudancas.html"} {
 		tmpl, err := template.New(pagina).Funcs(funcoes).ParseFS(templatesFS, "templates/layout.html", "templates/"+pagina)
 		if err != nil {
 			return nil, fmt.Errorf("carregando template %s: %w", pagina, err)
@@ -64,6 +71,8 @@ func (s *Server) Handler() http.Handler {
 	// "{$}" faz "/" casar só com a raiz, e não com qualquer caminho.
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 	mux.HandleFunc("GET /prs", s.handlePRs)
+	mux.HandleFunc("GET /mudancas", s.handleMudancas)
+	mux.HandleFunc("POST /mudancas/visto", s.handleMarcarVisto)
 
 	static, _ := fs.Sub(staticFS, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
@@ -110,8 +119,64 @@ func (s *Server) carregarDados(r *http.Request) (dadosPainel, error) {
 	if d.PRs, err = s.store.ListarPRs(ctx); err != nil {
 		return d, err
 	}
-	d.Vinculos, err = s.store.ListarVinculos(ctx)
+	if d.Vinculos, err = s.store.ListarVinculos(ctx); err != nil {
+		return d, err
+	}
+	d.NaoVistos, err = s.eventosNaoVistos(r)
 	return d, err
+}
+
+// eventosNaoVistos devolve os eventos depois de last_visit.
+func (s *Server) eventosNaoVistos(r *http.Request) ([]store.Evento, error) {
+	visita, err := s.store.UltimaVisita(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	return s.store.EventosDesde(r.Context(), visita)
+}
+
+// handleMudancas mostra os eventos não vistos. Abrir a página NÃO marca
+// nada como visto (seção 11): só o botão faz isso.
+func (s *Server) handleMudancas(w http.ResponseWriter, r *http.Request) {
+	eventos, err := s.eventosNaoVistos(r)
+	if err != nil {
+		s.erroInterno(w, err)
+		return
+	}
+	s.render(w, r, "mudancas.html", "O que mudou", montarMudancas(s.cfg.Produtos, eventos))
+}
+
+// handleMarcarVisto grava last_visit com a data enviada pelo formulário
+// (a do evento mais recente que estava na tela).
+func (s *Server) handleMarcarVisto(w http.ResponseWriter, r *http.Request) {
+	ate, err := time.Parse(time.RFC3339, r.FormValue("ate"))
+	if err != nil {
+		http.Error(w, "parâmetro 'ate' inválido", http.StatusBadRequest)
+		return
+	}
+
+	// Nunca voltar no tempo: um formulário antigo (outra aba) não pode
+	// fazer eventos já vistos reaparecerem.
+	visita, err := s.store.UltimaVisita(r.Context())
+	if err != nil {
+		s.erroInterno(w, err)
+		return
+	}
+	if ate.After(visita) {
+		if err := s.store.MarcarVistoAte(r.Context(), ate); err != nil {
+			s.erroInterno(w, err)
+			return
+		}
+	}
+
+	// Com htmx, devolvemos só o pedaço da página que muda. Sem JavaScript
+	// (formulário comum), redirecionamos de volta para a página.
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprint(w, `<div id="mudancas"><p class="vazio">Tudo marcado como visto.</p></div>`)
+		return
+	}
+	http.Redirect(w, r, "/mudancas", http.StatusSeeOther)
 }
 
 // erroInterno loga o erro com detalhes e mostra ao usuário só uma mensagem genérica.

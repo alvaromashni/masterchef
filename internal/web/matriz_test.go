@@ -30,6 +30,11 @@ func TestMontarMatriz(t *testing.T) {
 			{ID: 11, ProductSlug: "x", Scope: "api", State: "open", Draft: true, RiskLevel: "alto", UpdatedAt: ha(2 * time.Hour)},
 		},
 		Vinculos: []store.Vinculo{{IssueID: "4", PRID: 10}},
+		NaoVistos: []store.Evento{
+			{ProductSlug: "x", Scope: "api"},
+			{ProductSlug: "x", Scope: "api"},
+			{ProductSlug: "x", Scope: "mobile"},
+		},
 	}
 
 	m := montarMatriz(produtos, d, 72*time.Hour, agora)
@@ -61,6 +66,10 @@ func TestMontarMatriz(t *testing.T) {
 	}
 	if x.Celulas[2].Existe {
 		t.Errorf("x não tem o escopo app")
+	}
+	if api.NaoVistas != 2 || front.NaoVistas != 0 || x.AClassificar.NaoVistas != 1 {
+		t.Errorf("não vistas: api=%d front=%d a classificar=%d; esperava 2, 0, 1",
+			api.NaoVistas, front.NaoVistas, x.AClassificar.NaoVistas)
 	}
 	if x.AClassificar.EmAndamento != 2 {
 		t.Errorf("x/a classificar = %d, esperava 2 (sem label + escopo desconhecido)", x.AClassificar.EmAndamento)

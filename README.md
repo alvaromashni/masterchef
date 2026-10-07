@@ -4,8 +4,9 @@ Painel local e **somente leitura** que mostra o estado real dos produtos a parti
 Linear, do GitHub e dos Markdown do repo central. Veja o [CONTEXT.md](CONTEXT.md) para
 a visão completa e as regras do projeto.
 
-> Status: **Fase 2**. O painel coleta issues do Linear e PRs do GitHub, calcula o
-> risco de cada PR, vincula issues a PRs e mostra a matriz e a fila de review.
+> Status: **Fase 3**. O painel coleta issues do Linear e PRs do GitHub, calcula o
+> risco de cada PR, vincula issues a PRs, registra o que mudou a cada ciclo e mostra
+> a matriz, a fila de review e a tela "o que mudou".
 
 ## Telas
 
@@ -13,6 +14,9 @@ a visão completa e as regras do projeto.
   aguardando review (abertos e não rascunho), um ▲ se algum desses PRs tem risco
   alto e há quanto tempo foi a última atividade. Células sem atividade há mais que
   `stale_after` e com issues em andamento ficam amarelas ("paradas").
+- **`/mudancas` O que mudou**: mudanças desde a última vez que você clicou em
+  "Marcar como visto", agrupadas por produto e escopo. Abrir a página não marca nada
+  como visto. A matriz mostra quantas mudanças não vistas cada célula tem.
 - **`/prs` Fila de review**: PRs abertos e não rascunho, do maior risco para o
   menor e, no mesmo risco, do mais antigo para o mais novo. Cada PR mostra os
   motivos do risco e as issues vinculadas com os critérios de aceite
@@ -33,6 +37,11 @@ minúsculas (`alvaro/abc-123-login`).
 **Primeiro sync**: busca todas as issues não canceladas do Linear e, no GitHub, os PRs
 abertos mais os fechados/mergeados nos últimos 45 dias (`JanelaPrimeiroSync` em
 `internal/collector`). Depois, cada ciclo busca só o que mudou desde o último sync.
+
+**Eventos (o que mudou)**: a cada ciclo, o coletor compara o que veio das APIs com o
+banco antes de gravar. Viram eventos: issue nova, issue que mudou de estado, PR aberto,
+reaberto, mergeado, fechado sem merge ou atualizado (novo push). O primeiro sync não
+gera eventos.
 
 **Risco de um PR**: `alto` se algum arquivo casa com uma regra alta; senão `medio` se
 casa com uma regra média, se o diff passa de `limite_linhas_diff` ou se nenhum

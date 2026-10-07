@@ -69,27 +69,6 @@ func inserirVinculo(ctx context.Context, tx *sql.Tx, v Vinculo) error {
 	return nil
 }
 
-// PRsUpdatedAt devolve id -> updated_at de todos os PRs gravados. O coletor
-// usa isso para buscar arquivos e recalcular risco só de PRs novos ou alterados.
-func (s *Store) PRsUpdatedAt(ctx context.Context) (map[int64]time.Time, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, updated_at FROM pull_requests`)
-	if err != nil {
-		return nil, fmt.Errorf("lendo datas dos PRs: %w", err)
-	}
-	defer rows.Close()
-
-	datas := map[int64]time.Time{}
-	for rows.Next() {
-		var id int64
-		var updated string
-		if err := rows.Scan(&id, &updated); err != nil {
-			return nil, fmt.Errorf("lendo datas dos PRs: %w", err)
-		}
-		datas[id] = parsear(updated)
-	}
-	return datas, rows.Err()
-}
-
 // ListarPRs devolve todos os PRs gravados.
 func (s *Store) ListarPRs(ctx context.Context) ([]PR, error) {
 	rows, err := s.db.QueryContext(ctx, `
