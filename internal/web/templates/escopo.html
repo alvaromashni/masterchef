@@ -1,0 +1,68 @@
+{{define "conteudo"}}
+<p class="trilha"><a href="/">Matriz</a> › {{.Produto.Nome}} › {{escopo .Escopo}} · <a href="/p/{{.Produto.Slug}}/decisoes">decisões do produto</a></p>
+<h1>{{.Produto.Nome}} · {{escopo .Escopo}}</h1>
+
+<div class="colunas">
+  <section>
+    <h2>Issues</h2>
+    {{if not .IssuesPorEstado}}
+    <p class="vazio">Nenhuma issue neste escopo.</p>
+    {{else}}
+      {{range .IssuesPorEstado}}
+      <h3>{{.Estado}} <span class="contagem">{{len .Issues}}</span></h3>
+      <ul class="lista">
+        {{range .Issues}}
+        <li>
+          <a href="{{.URL}}" target="_blank" rel="noopener">{{.Identifier}}</a> {{.Title}}
+          <span class="estado" title="{{dataHora .UpdatedAt}}">{{haQuanto .UpdatedAt}}</span>
+        </li>
+        {{end}}
+      </ul>
+      {{end}}
+    {{end}}
+
+    <h2>PRs abertos</h2>
+    {{if not .PRsAbertos}}
+    <p class="vazio">Nenhum PR aberto neste escopo.</p>
+    {{else}}
+    <ul class="fila">
+      {{range .PRsAbertos}}
+      <li class="item risco-{{.RiskLevel}}">
+        <div class="item-topo">
+          <span class="selo {{.RiskLevel}}">{{risco .RiskLevel}}</span>
+          <a href="{{.URL}}" target="_blank" rel="noopener">{{.Repo}}#{{.Number}}</a>
+          <strong>{{.Title}}</strong>
+          {{if .Draft}}<span class="estado">rascunho</span>{{end}}
+        </div>
+        <div class="item-meta">aberto {{haQuanto .CreatedAt}} · +{{.Additions}} −{{.Deletions}}</div>
+        {{if .RiskReasons}}
+        <ul class="motivos">{{range .RiskReasons}}<li>{{.}}</li>{{end}}</ul>
+        {{end}}
+      </li>
+      {{end}}
+    </ul>
+    {{end}}
+
+    <h2>Eventos recentes</h2>
+    {{if not .Eventos}}
+    <p class="vazio">Nenhum evento registrado neste escopo.</p>
+    {{else}}
+    <ul class="eventos">
+      {{range .Eventos}}
+      <li class="evento evento-{{.Kind}}">
+        <span class="quando" title="{{dataHora .OccurredAt}}">{{haQuanto .OccurredAt}}</span>
+        <a href="{{.URL}}" target="_blank" rel="noopener">{{.Ref}}</a>
+        <span>{{.Summary}}</span>
+      </li>
+      {{end}}
+    </ul>
+    {{end}}
+  </section>
+
+  <aside class="markdown">
+    <h2>PRODUCT.md</h2>
+    {{if .Product.Aviso}}<p class="vazio">{{.Product.Aviso}}</p>{{end}}
+    {{.Product.HTML}}
+  </aside>
+</div>
+{{end}}

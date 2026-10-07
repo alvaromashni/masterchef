@@ -14,8 +14,9 @@
   {{range .Produtos}}
   <section class="produto">
     <h2>{{.Produto.Nome}}</h2>
+    {{$slug := .Produto.Slug}}
     {{range .Escopos}}
-    <h3>{{escopo .Nome}}</h3>
+    <h3><a href="{{linkEscopo $slug .Nome}}">{{escopo .Nome}}</a></h3>
     <ul class="eventos">
       {{range .Eventos}}
       <li class="evento evento-{{.Kind}}">

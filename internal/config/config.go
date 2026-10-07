@@ -26,9 +26,12 @@ const (
 	NivelMedio = "medio"
 )
 
-// EscopoReservado não pode ser usado como nome de escopo porque colide com
-// a rota /p/{produto}/decisoes (seção 11 do CONTEXT.md).
-const EscopoReservado = "decisoes"
+// Nomes que não podem ser usados como escopo porque colidem com as rotas
+// /p/{produto}/decisoes e /p/{produto}/a-classificar (seção 11 do CONTEXT.md).
+const (
+	EscopoReservado    = "decisoes"
+	EscopoAClassificar = "a-classificar"
+)
 
 // Config é o conteúdo do config.yaml já validado e com os segredos lidos do ambiente.
 type Config struct {
@@ -239,7 +242,7 @@ func (c *Config) validateProdutos() []error {
 				add("%s: escopo com nome vazio", ref)
 			case !slugRegex.MatchString(e.Nome):
 				add("%s: escopo %q deve ter só letras minúsculas, números e hífens", ref, e.Nome)
-			case e.Nome == EscopoReservado:
+			case e.Nome == EscopoReservado || e.Nome == EscopoAClassificar:
 				add("%s: %q é um nome reservado (usado pela página de decisões)", ref, e.Nome)
 			case escoposVistos[e.Nome]:
 				add("%s: escopo %q duplicado", ref, e.Nome)

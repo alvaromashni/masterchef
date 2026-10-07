@@ -57,19 +57,7 @@ func (s *Store) EventosDesde(ctx context.Context, desde time.Time) ([]Evento, er
 	if err != nil {
 		return nil, fmt.Errorf("listando eventos: %w", err)
 	}
-	defer rows.Close()
-
-	var eventos []Evento
-	for rows.Next() {
-		var e Evento
-		var quando string
-		if err := rows.Scan(&e.ID, &quando, &e.ProductSlug, &e.Scope, &e.Kind, &e.Ref, &e.Summary, &e.URL); err != nil {
-			return nil, fmt.Errorf("lendo evento: %w", err)
-		}
-		e.OccurredAt = parsear(quando)
-		eventos = append(eventos, e)
-	}
-	return eventos, rows.Err()
+	return lerEventos(rows)
 }
 
 // UltimaVisita devolve até quando as mudanças já foram vistas (zero = nunca).
@@ -93,4 +81,37 @@ func (s *Store) MarcarVistoAte(ctx context.Context, quando time.Time) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+// EventosDoProduto devolve os eventos mais recentes de um produto (vistos ou
+// não), do mais novo para o mais antigo, até o limite.
+func (s *Store) EventosDoProduto(ctx context.Context, produto string, limite int) ([]Evento, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, occurred_at, product_slug, COALESCE(scope, ''), kind, ref, summary, url
+		FROM events
+		WHERE product_slug = ?
+		ORDER BY occurred_at DESC, id DESC
+		LIMIT ?`, produto, limite)
+	if err != nil {
+		return nil, fmt.Errorf("listando eventos de %s: %w", produto, err)
+	}
+	return lerEventos(rows)
+}
+
+// lerEventos percorre o resultado de um SELECT de eventos (sempre com as
+// mesmas colunas, na mesma ordem) e fecha as linhas no fim.
+func lerEventos(rows *sql.Rows) ([]Evento, error) {
+	defer rows.Close()
+
+	var eventos []Evento
+	for rows.Next() {
+		var e Evento
+		var quando string
+		if err := rows.Scan(&e.ID, &quando, &e.ProductSlug, &e.Scope, &e.Kind, &e.Ref, &e.Summary, &e.URL); err != nil {
+			return nil, fmt.Errorf("lendo evento: %w", err)
+		}
+		e.OccurredAt = parsear(quando)
+		eventos = append(eventos, e)
+	}
+	return eventos, rows.Err()
 }

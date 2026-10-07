@@ -108,6 +108,12 @@ func TestParse_ConfigInvalida(t *testing.T) {
 			erroContem: "nome reservado",
 		},
 		{
+			nome:       "escopo com o nome da coluna a classificar",
+			trocar:     "app: alvaromashni/produto-y-app",
+			por:        "a-classificar: alvaromashni/produto-y-app",
+			erroContem: "nome reservado",
+		},
+		{
 			nome:       "nível de risco inválido",
 			trocar:     "nivel: medio",
 			por:        "nivel: critico",

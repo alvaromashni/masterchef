@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/alvaromashni/masterchef/internal/config"
+	"github.com/alvaromashni/masterchef/internal/product"
 	"github.com/alvaromashni/masterchef/internal/store"
 )
 
@@ -29,6 +30,9 @@ type Server struct {
 	cfg    *config.Config
 	store  *store.Store
 	logger *slog.Logger
+	// markdown lê PRODUCT.md e DECISIONS.md do repo central a cada pedido,
+	// então editar o arquivo e recarregar a página já mostra a mudança.
+	markdown *product.Leitor
 	// Um template por página. Cada página é o layout + o arquivo da página,
 	// parseados juntos, porque todas definem um bloco "conteudo" e um único
 	// conjunto de templates não aceitaria vários blocos com o mesmo nome.
@@ -37,7 +41,13 @@ type Server struct {
 
 // New prepara os templates e devolve o servidor pronto para Handler().
 func New(cfg *config.Config, st *store.Store, logger *slog.Logger) (*Server, error) {
-	s := &Server{cfg: cfg, store: st, logger: logger, paginas: map[string]*template.Template{}}
+	s := &Server{
+		cfg:      cfg,
+		store:    st,
+		logger:   logger,
+		markdown: product.NewLeitor(cfg.CentralRepoPath),
+		paginas:  map[string]*template.Template{},
+	}
 
 	// Funções que os templates podem chamar, ex.: {{haQuanto .Sync.UltimoOK}}.
 	funcoes := template.FuncMap{
@@ -51,9 +61,11 @@ func New(cfg *config.Config, st *store.Store, logger *slog.Logger) (*Server, err
 			}
 			return nome
 		},
+		// linkEscopo monta o endereço da página de um escopo ("" = a classificar).
+		"linkEscopo": linkEscopo,
 	}
 
-	for _, pagina := range []string{"index.html", "prs.html", "mudancas.html"} {
+	for _, pagina := range []string{"index.html", "prs.html", "mudancas.html", "escopo.html", "decisoes.html"} {
 		tmpl, err := template.New(pagina).Funcs(funcoes).ParseFS(templatesFS, "templates/layout.html", "templates/"+pagina)
 		if err != nil {
 			return nil, fmt.Errorf("carregando template %s: %w", pagina, err)
@@ -73,6 +85,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /prs", s.handlePRs)
 	mux.HandleFunc("GET /mudancas", s.handleMudancas)
 	mux.HandleFunc("POST /mudancas/visto", s.handleMarcarVisto)
+	// O padrão mais específico ("decisoes" fixo) vence o genérico ({escopo}).
+	mux.HandleFunc("GET /p/{produto}/decisoes", s.handleDecisoes)
+	mux.HandleFunc("GET /p/{produto}/{escopo}", s.handleEscopo)
 
 	static, _ := fs.Sub(staticFS, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
@@ -177,6 +192,66 @@ func (s *Server) handleMarcarVisto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/mudancas", http.StatusSeeOther)
+}
+
+// handleEscopo mostra a página de uma célula da matriz.
+func (s *Server) handleEscopo(w http.ResponseWriter, r *http.Request) {
+	p, ok := s.produto(r.PathValue("produto"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	alvo := r.PathValue("escopo")
+	if alvo == config.EscopoAClassificar {
+		alvo = aClassificar
+	} else if celulaDe(p, alvo) != alvo {
+		http.NotFound(w, r) // escopo que este produto não tem
+		return
+	}
+
+	d, err := s.carregarDados(r)
+	if err != nil {
+		s.erroInterno(w, err)
+		return
+	}
+	eventos, err := s.store.EventosDoProduto(r.Context(), p.Slug, 500)
+	if err != nil {
+		s.erroInterno(w, err)
+		return
+	}
+
+	doc := product.Documento{Aviso: "Issues sem escopo não têm seção no PRODUCT.md."}
+	if alvo != aClassificar {
+		doc = s.markdown.SecaoDoEscopo(p.Slug, alvo)
+	}
+	titulo := p.Nome + " · " + alvo
+	if alvo == aClassificar {
+		titulo = p.Nome + " · a classificar"
+	}
+	s.render(w, r, "escopo.html", titulo, montarPaginaEscopo(p, alvo, d, eventos, doc))
+}
+
+// handleDecisoes mostra o DECISIONS.md do produto.
+func (s *Server) handleDecisoes(w http.ResponseWriter, r *http.Request) {
+	p, ok := s.produto(r.PathValue("produto"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	s.render(w, r, "decisoes.html", p.Nome+" · decisões", map[string]any{
+		"Produto": p,
+		"Doc":     s.markdown.Decisoes(p.Slug),
+	})
+}
+
+// produto acha o produto pelo slug da URL.
+func (s *Server) produto(slug string) (config.Produto, bool) {
+	for _, p := range s.cfg.Produtos {
+		if p.Slug == slug {
+			return p, true
+		}
+	}
+	return config.Produto{}, false
 }
 
 // erroInterno loga o erro com detalhes e mostra ao usuário só uma mensagem genérica.
