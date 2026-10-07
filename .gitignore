@@ -1,0 +1,8 @@
+# Binário e banco local
+/painel
+*.db
+*.db-shm
+*.db-wal
+
+# Config real fica no repo central, não aqui
+/config.yaml

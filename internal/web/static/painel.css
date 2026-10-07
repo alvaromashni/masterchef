@@ -1,0 +1,37 @@
+/* CSS simples e sem build. Cores em variáveis para facilitar ajustes. */
+:root {
+  --fundo: #f7f7f8;
+  --texto: #1d1d1f;
+  --suave: #6b6b70;
+  --borda: #dcdce0;
+  --destaque: #2f5bd3;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--fundo);
+  color: var(--texto);
+  line-height: 1.5;
+}
+
+.topo {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 0.75rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid var(--borda);
+}
+
+.topo a { color: var(--texto); text-decoration: none; }
+.topo nav a:hover { color: var(--destaque); }
+.marca { font-weight: 700; }
+
+main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+
+h1 { font-size: 1.4rem; margin-top: 0; }
+
+.vazio { color: var(--suave); }

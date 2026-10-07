@@ -1,0 +1,23 @@
+{{define "layout"}}<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Titulo}} · Painel</title>
+  <link rel="stylesheet" href="/static/painel.css">
+  <!-- htmx via CDN: dá interatividade (ex.: botão "marcar como visto") sem build de front. -->
+  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+</head>
+<body>
+  <header class="topo">
+    <a class="marca" href="/">Painel</a>
+    <nav>
+      <a href="/">Matriz</a>
+    </nav>
+  </header>
+  <main>
+    {{template "conteudo" .}}
+  </main>
+</body>
+</html>
+{{end}}

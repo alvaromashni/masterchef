@@ -1,0 +1,32 @@
+poll_interval: 5m
+listen: 127.0.0.1:7777
+db_path: ~/painel.db
+central_repo_path: ~/dev/painel-central
+stale_after: 72h
+
+produtos:
+  - nome: Produto X
+    slug: produto-x
+    linear_project_id: "uuid-x"
+    escopos:
+      api: alvaromashni/produto-x-api
+      front: alvaromashni/produto-x-front
+      infra: alvaromashni/produto-x-infra
+  - nome: Produto Y
+    slug: produto-y
+    linear_project_id: "uuid-y"
+    escopos:
+      app: alvaromashni/produto-y-app
+
+risco:
+  limite_linhas_diff: 400
+  regras:
+    - padrao: "**/migrations/**"
+      nivel: alto
+      motivo: "Altera migração de banco"
+    - padrao: ".github/workflows/**"
+      nivel: medio
+      motivo: "Altera CI/CD"
+  padroes_de_teste:
+    - "**/*_test.go"
+    - "**/src/test/**"

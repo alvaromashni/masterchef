@@ -1,0 +1,39 @@
+# Copie para config.yaml (no repo central) e ajuste.
+# Segredos NÃO ficam aqui: use as variáveis de ambiente LINEAR_API_KEY e GITHUB_TOKEN.
+
+poll_interval: 5m                          # de quanto em quanto tempo o coletor busca dados
+listen: 127.0.0.1:7777                     # endereço do painel no navegador
+db_path: ./painel.db                       # arquivo SQLite (criado se não existir)
+central_repo_path: ~/dev/painel-central    # onde estão PRODUCT.md e DECISIONS.md
+
+stale_after: 72h          # célula sem atividade há mais que isso fica "parada"
+
+produtos:
+  - nome: Produto X
+    slug: produto-x                        # minúsculas, números e hífens; aparece nas URLs
+    linear_project_id: "uuid-do-projeto-no-linear"
+    escopos:                               # a ordem aqui é a ordem das colunas da matriz
+      api: alvaromashni/produto-x-api
+      front: alvaromashni/produto-x-front
+      infra: alvaromashni/produto-x-infra
+
+risco:
+  limite_linhas_diff: 400
+  regras:                                  # aplicadas a todos os repos; nivel: alto ou medio
+    - padrao: "**/migrations/**"
+      nivel: alto
+      motivo: "Altera migração de banco"
+    - padrao: "**/auth/**"
+      nivel: alto
+      motivo: "Mexe em autenticação/permissões"
+    - padrao: "**/Dockerfile"
+      nivel: medio
+      motivo: "Altera imagem de container"
+    - padrao: ".github/workflows/**"
+      nivel: medio
+      motivo: "Altera CI/CD"
+  padroes_de_teste:                        # se nenhum arquivo do PR casar, alerta "sem testes"
+    - "**/*_test.go"
+    - "**/*.test.*"
+    - "**/*.spec.*"
+    - "**/src/test/**"
