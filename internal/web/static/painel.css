@@ -35,3 +35,24 @@ main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
 h1 { font-size: 1.4rem; margin-top: 0; }
 
 .vazio { color: var(--suave); }
+
+.sync { margin-left: auto; color: var(--suave); font-size: 0.9rem; }
+
+.alerta {
+  margin: 0;
+  padding: 0.75rem 1.5rem;
+  background: #fdecea;
+  border-bottom: 1px solid #f5c2bd;
+  color: #8a1c12;
+}
+.alerta pre { margin: 0.25rem 0 0; white-space: pre-wrap; font-size: 0.85rem; }
+
+.legenda { color: var(--suave); font-size: 0.9rem; }
+
+.matriz { border-collapse: collapse; background: #fff; width: 100%; }
+.matriz th, .matriz td { border: 1px solid var(--borda); padding: 0.6rem 0.9rem; text-align: center; }
+.matriz tbody th { text-align: left; font-weight: 600; }
+.matriz thead th { background: #f0f0f3; font-weight: 600; }
+.celula { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.zerada, .inexistente { color: var(--suave); }
+.a-classificar { background: #fafafa; }

@@ -1,4 +1,32 @@
 {{define "conteudo"}}
 <h1>Matriz</h1>
-<p class="vazio">Nenhum dado ainda. A coleta do Linear e do GitHub entra nas próximas fases.</p>
+{{if not .Linhas}}
+<p class="vazio">Nenhum produto configurado.</p>
+{{else}}
+<p class="legenda">Cada célula mostra quantas issues estão em andamento.</p>
+<table class="matriz">
+  <thead>
+    <tr>
+      <th>Produto</th>
+      {{range .Escopos}}<th>{{.}}</th>{{end}}
+      <th class="a-classificar">a classificar</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Linhas}}
+    <tr>
+      <th scope="row">{{.Produto.Nome}}</th>
+      {{range .Celulas}}
+        {{if .Existe}}
+        <td class="celula{{if eq .EmAndamento 0}} zerada{{end}}">{{.EmAndamento}}</td>
+        {{else}}
+        <td class="celula inexistente" title="Escopo não configurado neste produto">—</td>
+        {{end}}
+      {{end}}
+      <td class="celula a-classificar{{if eq .AClassificar.EmAndamento 0}} zerada{{end}}">{{.AClassificar.EmAndamento}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}
 {{end}}

@@ -4,7 +4,14 @@ Painel local e **somente leitura** que mostra o estado real dos produtos a parti
 Linear, do GitHub e dos Markdown do repo central. Veja o [CONTEXT.md](CONTEXT.md) para
 a visão completa e as regras do projeto.
 
-> Status: **Fase 0** (esqueleto). Ainda não há coleta; a página inicial é um placeholder.
+> Status: **Fase 1**. O painel coleta as issues do Linear e mostra a matriz
+> produto × escopo com a contagem de issues em andamento. GitHub entra na Fase 2.
+
+## Como uma issue cai numa coluna
+
+Por enquanto só a label do Linear decide: uma issue com a label `scope:api` vai para a
+coluna `api`. Sem label (ou com um escopo que o produto não tem), ela vai para
+**a classificar**. "Em andamento" = issues cujo estado no Linear é do tipo *started*.
 
 ## Requisitos
 

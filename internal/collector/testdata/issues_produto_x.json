@@ -1,0 +1,26 @@
+[
+  {
+    "ID": "x-1", "Identifier": "PX-1", "Title": "Endpoint de login",
+    "StateName": "In Progress", "StateType": "started",
+    "Labels": ["scope:api"], "URL": "https://linear.app/x/issue/PX-1",
+    "UpdatedAt": "2026-10-01T12:00:00Z"
+  },
+  {
+    "ID": "x-2", "Identifier": "PX-2", "Title": "Pipeline de deploy",
+    "StateName": "In Progress", "StateType": "started",
+    "Labels": ["scope:infra"], "URL": "https://linear.app/x/issue/PX-2",
+    "UpdatedAt": "2026-10-01T13:00:00Z"
+  },
+  {
+    "ID": "x-3", "Identifier": "PX-3", "Title": "Sem escopo ainda",
+    "StateName": "In Progress", "StateType": "started",
+    "Labels": ["bug"], "URL": "https://linear.app/x/issue/PX-3",
+    "UpdatedAt": "2026-10-01T14:00:00Z"
+  },
+  {
+    "ID": "x-4", "Identifier": "PX-4", "Title": "Ainda no backlog",
+    "StateName": "Backlog", "StateType": "backlog",
+    "Labels": ["scope:api"], "URL": "https://linear.app/x/issue/PX-4",
+    "UpdatedAt": "2026-10-01T15:00:00Z"
+  }
+]

@@ -9,7 +9,9 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"time"
 
+	"github.com/alvaromashni/masterchef/internal/config"
 	"github.com/alvaromashni/masterchef/internal/store"
 )
 
@@ -24,6 +26,7 @@ var staticFS embed.FS
 
 // Server agrupa o que os handlers precisam para responder.
 type Server struct {
+	cfg    *config.Config
 	store  *store.Store
 	logger *slog.Logger
 	// Um template por página. Cada página é o layout + o arquivo da página,
@@ -33,11 +36,17 @@ type Server struct {
 }
 
 // New prepara os templates e devolve o servidor pronto para Handler().
-func New(st *store.Store, logger *slog.Logger) (*Server, error) {
-	s := &Server{store: st, logger: logger, paginas: map[string]*template.Template{}}
+func New(cfg *config.Config, st *store.Store, logger *slog.Logger) (*Server, error) {
+	s := &Server{cfg: cfg, store: st, logger: logger, paginas: map[string]*template.Template{}}
+
+	// Funções que os templates podem chamar, ex.: {{haQuanto .Sync.UltimoOK}}.
+	funcoes := template.FuncMap{
+		"dataHora": dataHora,
+		"haQuanto": func(t time.Time) string { return haQuanto(time.Now(), t) },
+	}
 
 	for _, pagina := range []string{"index.html"} {
-		tmpl, err := template.ParseFS(templatesFS, "templates/layout.html", "templates/"+pagina)
+		tmpl, err := template.New(pagina).Funcs(funcoes).ParseFS(templatesFS, "templates/layout.html", "templates/"+pagina)
 		if err != nil {
 			return nil, fmt.Errorf("carregando template %s: %w", pagina, err)
 		}
@@ -60,16 +69,41 @@ func (s *Server) Handler() http.Handler {
 	return mux
 }
 
+// dadosPagina é o que todo template recebe. Sync alimenta o aviso do topo,
+// que aparece em todas as páginas (seção 11 do CONTEXT.md).
+type dadosPagina struct {
+	Titulo   string
+	Sync     store.EstadoSync
+	Conteudo any
+}
+
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	s.render(w, "index.html", map[string]any{
-		"Titulo": "Matriz",
-	})
+	ctx := r.Context()
+	contagens, err := s.store.ContarEmAndamento(ctx)
+	if err != nil {
+		s.erroInterno(w, err)
+		return
+	}
+	s.render(w, r, "index.html", "Matriz", montarMatriz(s.cfg.Produtos, contagens))
+}
+
+// erroInterno loga o erro com detalhes e mostra ao usuário só uma mensagem genérica.
+func (s *Server) erroInterno(w http.ResponseWriter, err error) {
+	s.logger.Error("erro ao montar página", "erro", err)
+	http.Error(w, "erro interno", http.StatusInternalServerError)
 }
 
 // render executa o template num buffer antes de escrever a resposta.
 // Assim, se o template falhar no meio, devolvemos um 500 limpo em vez
 // de uma página cortada pela metade.
-func (s *Server) render(w http.ResponseWriter, pagina string, dados any) {
+func (s *Server) render(w http.ResponseWriter, r *http.Request, pagina, titulo string, conteudo any) {
+	sync, err := s.store.LerEstadoSync(r.Context())
+	if err != nil {
+		s.erroInterno(w, err)
+		return
+	}
+	dados := dadosPagina{Titulo: titulo, Sync: sync, Conteudo: conteudo}
+
 	tmpl, ok := s.paginas[pagina]
 	if !ok {
 		s.logger.Error("template inexistente", "pagina", pagina)
