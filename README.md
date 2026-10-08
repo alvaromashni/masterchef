@@ -132,23 +132,26 @@ risco.regras[2]: nivel "critico" inválido (use "alto" ou "medio")
 Uma vez só, guarde as chaves num `.env` (fica fora do git):
 
 ```sh
-cp .env.example .env   # e preencha LINEAR_API_KEY e GITHUB_TOKEN
+cp .env.example .env     # no Windows: copy .env.example .env
 ```
 
-Depois, todo dia, um comando só:
+e preencha `LINEAR_API_KEY` e `GITHUB_TOKEN` nele.
 
-```sh
-./masterchef.sh
-```
+Depois, todo dia, um clique ou um comando só. O script carrega o `.env`, compila,
+sobe o painel e abre o navegador. Se o painel já estiver rodando, ele só abre o
+navegador. Ctrl+C (ou fechar a janela) encerra.
 
-O script carrega o `.env`, compila, sobe o painel e abre o navegador. Se o painel
-já estiver rodando, ele só abre o navegador. Ctrl+C (ou fechar o terminal) encerra.
+**Windows**
+- Duplo clique em `masterchef.bat`.
+- Para ter um botão: botão direito em `masterchef.bat` → *Mostrar mais opções* →
+  *Enviar para* → *Área de trabalho (criar atalho)*. Dá para fixar o atalho na barra
+  de tarefas também.
+- Pelo terminal: `.\masterchef.bat` (ou `.\masterchef.ps1` no PowerShell).
 
-- **Rodar de qualquer pasta:** adicione ao `~/.zshrc` (ou `~/.bashrc`)
-  `alias masterchef="$HOME/dev/masterchef/masterchef.sh"` e digite `masterchef`.
-- **Botão no macOS:** dê duplo clique em `masterchef.command` no Finder (ou arraste
-  para o Dock). Na primeira vez, o macOS pode pedir para liberar em *Ajustes → Privacidade
-  e Segurança*.
+**macOS / Linux**
+- `./masterchef.sh`, ou duplo clique em `masterchef.command` no Finder (macOS).
+- Para rodar de qualquer pasta: `alias masterchef="$HOME/dev/masterchef/masterchef.sh"`
+  no `~/.zshrc` (ou `~/.bashrc`).
 
 Sem o script, o equivalente manual é:
 
@@ -157,6 +160,9 @@ export LINEAR_API_KEY=lin_api_...
 export GITHUB_TOKEN=github_pat_...
 go run ./cmd/painel -config config.yaml
 ```
+
+No PowerShell, troque os `export` por `$env:LINEAR_API_KEY="lin_api_..."` e
+`$env:GITHUB_TOKEN="github_pat_..."`.
 
 ## Desenvolvimento
 
