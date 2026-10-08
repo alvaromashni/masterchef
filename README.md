@@ -129,15 +129,34 @@ risco.regras[2]: nivel "critico" inválido (use "alto" ou "medio")
 
 ## 3. Rodar
 
+Uma vez só, guarde as chaves num `.env` (fica fora do git):
+
+```sh
+cp .env.example .env   # e preencha LINEAR_API_KEY e GITHUB_TOKEN
+```
+
+Depois, todo dia, um comando só:
+
+```sh
+./masterchef.sh
+```
+
+O script carrega o `.env`, compila, sobe o painel e abre o navegador. Se o painel
+já estiver rodando, ele só abre o navegador. Ctrl+C (ou fechar o terminal) encerra.
+
+- **Rodar de qualquer pasta:** adicione ao `~/.zshrc` (ou `~/.bashrc`)
+  `alias masterchef="$HOME/dev/masterchef/masterchef.sh"` e digite `masterchef`.
+- **Botão no macOS:** dê duplo clique em `masterchef.command` no Finder (ou arraste
+  para o Dock). Na primeira vez, o macOS pode pedir para liberar em *Ajustes → Privacidade
+  e Segurança*.
+
+Sem o script, o equivalente manual é:
+
 ```sh
 export LINEAR_API_KEY=lin_api_...
 export GITHUB_TOKEN=github_pat_...
 go run ./cmd/painel -config config.yaml
 ```
-
-Abra http://127.0.0.1:7777.
-
-Para gerar um binário único: `go build -o painel ./cmd/painel`.
 
 ## Desenvolvimento
 
