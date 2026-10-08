@@ -1,29 +1,52 @@
 {{define "conteudo"}}
-<div class="cabecalho">
-  <h1>O que mudou</h1>
-  <p class="subtitulo">Tudo o que aconteceu desde a última vez que você marcou como visto. Abrir esta página não marca nada.</p>
-</div>
-<div id="mudancas">
-{{if not .Total}}
-  <p class="vazio">Nada novo desde a última vez que você marcou como visto.</p>
-{{else}}
-  <form class="marcar-visto" method="post" action="/mudancas/visto"
-        hx-post="/mudancas/visto" hx-target="#mudancas" hx-swap="outerHTML">
-    <input type="hidden" name="ate" value="{{rfc3339 .VistoAte}}">
-    <span><strong>{{.Total}}</strong> {{if eq .Total 1}}mudança nova{{else}}mudanças novas{{end}}</span>
-    <button type="submit">Marcar tudo como visto</button>
-  </form>
-
-  {{range .Produtos}}
-  <section class="grupo-produto">
-    <h2>{{.Produto.Nome}}</h2>
-    {{$slug := .Produto.Slug}}
-    {{range .Escopos}}
-    <h3><a href="{{linkEscopo $slug .Nome}}">{{escopo .Nome}}</a></h3>
-    {{template "eventos" .Eventos}}
+<div id="mudancas" class="estreita">
+  <div class="cabecalho">
+    <div>
+      <h1>O que mudou</h1>
+      <p class="subtitulo">{{if .Total}}{{.Total}} {{plural .Total "evento" "eventos"}} desde {{if .UltimaVisita.IsZero}}o primeiro sync{{else}}a última visita, {{dataVisita .UltimaVisita}}{{end}}.{{else if .UltimaVisita.IsZero}}Nenhum evento registrado ainda.{{else}}Última visita marcada às {{hora .UltimaVisita}}.{{end}}</p>
+    </div>
+    {{if .Total}}
+    <!-- Abrir a página não marca nada como visto (seção 11): só este botão.
+         Grava a data do evento mais recente da tela, não "agora". -->
+    <form method="post" action="/mudancas/visto" hx-post="/mudancas/visto" hx-target="#mudancas" hx-swap="outerHTML">
+      <input type="hidden" name="ate" value="{{rfc3339 .VistoAte}}">
+      <button class="btn" type="submit">Marcar como visto</button>
+    </form>
     {{end}}
-  </section>
+  </div>
+
+  {{if .Total}}
+  <div id="eventos" class="grupos">
+    {{range .Produtos}}
+    {{$slug := .Produto.Slug}}
+    <section>
+      <div class="grupo-titulo">
+        <h2>{{.Produto.Nome}}</h2>
+        <span class="meta">{{total .Escopos}} {{plural (total .Escopos) "evento" "eventos"}}</span>
+      </div>
+      {{range .Escopos}}
+      <div class="grupo-escopo">
+        <a href="{{linkEscopo $slug .Nome}}">{{escopo .Nome}}</a>
+        <div>
+          {{range .Eventos}}
+          <div class="evento-linha">
+            <time class="meta" datetime="{{rfc3339 .OccurredAt}}" title="{{dataHora .OccurredAt}}">{{horaEvento .OccurredAt}}</time>
+            <span class="tipo">{{rotulo .}}</span>
+            <a class="ref" href="{{.URL}}" target="_blank" rel="noopener">{{refCurta .Ref}}</a>
+            <span class="resumo">{{texto .}}</span>
+          </div>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+    </section>
+    {{end}}
+  </div>
+  {{else}}
+  <div id="eventos" class="nada-novo">
+    <p class="nada-novo-titulo">{{if .UltimaVisita.IsZero}}Nada registrado ainda.{{else}}Nada novo desde {{hora .UltimaVisita}}.{{end}}</p>
+    <p>Eventos detectados nos próximos syncs aparecem aqui.</p>
+  </div>
   {{end}}
-{{end}}
 </div>
 {{end}}

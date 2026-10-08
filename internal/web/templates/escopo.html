@@ -1,76 +1,91 @@
 {{define "conteudo"}}
 <nav class="trilha" aria-label="Você está em">
-  <a href="/">Matriz</a> / <span>{{.Produto.Nome}}</span> / <span>{{escopo .Escopo}}</span>
+  <a href="/">matriz</a><span>/</span><span>{{.Produto.Slug}}</span><span>/</span><span class="atual">{{escopo .Escopo}}</span>
 </nav>
-<div class="cabecalho cabecalho-escopo">
-  <h1>{{escopo .Escopo}} <span class="do-produto">em {{.Produto.Nome}}</span></h1>
-  <a class="botao-secundario" href="/p/{{.Produto.Slug}}/decisoes">Decisões do produto</a>
+<div class="cabecalho cabecalho-grande">
+  <div>
+    <h1>{{.Produto.Nome}} <span class="depois">/ {{escopo .Escopo}}</span></h1>
+    <p class="mono">{{if .Repo}}{{.Repo}}{{else}}issues sem PR vinculado e sem label scope:&lt;nome&gt; válida{{end}}</p>
+  </div>
+  <div class="numeros-escopo">
+    <div><span class="valor">{{.Celula.EmAndamento}}</span><span class="nome">em andamento</span></div>
+    <div><span class="valor">{{len .PRsAbertos}}</span><span class="nome">{{plural (len .PRsAbertos) "PR aberto" "PRs abertos"}}</span></div>
+    <div><span class="valor">{{if .Celula.UltimaAtividade.IsZero}}—{{else}}{{idade .Celula.UltimaAtividade}}{{end}}</span><span class="nome">desde a última atividade</span></div>
+  </div>
 </div>
+{{if .Celula.Parada}}
+<div class="aviso-parada hachura">Parada: nenhuma mudança em issues ou PRs há {{idade .Celula.UltimaAtividade}}, com {{.Celula.EmAndamento}} {{plural .Celula.EmAndamento "issue" "issues"}} em andamento.</div>
+{{end}}
 
 <div class="colunas">
-  <div class="coluna-dados">
+  <div class="coluna">
     <section>
       <h2>Issues</h2>
-      {{if not .IssuesPorEstado}}
-      <p class="vazio">Nenhuma issue neste escopo.</p>
-      {{else}}
-        {{range .IssuesPorEstado}}
-        <h3 class="estado-titulo">{{.Estado}} <span class="contagem">{{len .Issues}}</span></h3>
-        <ul class="lista">
-          {{range .Issues}}
-          <li>
-            <a class="id" href="{{.URL}}" target="_blank" rel="noopener">{{.Identifier}}</a>
-            <span class="titulo">{{.Title}}</span>
-            <time class="quando" title="{{dataHora .UpdatedAt}}">{{haQuanto .UpdatedAt}}</time>
-          </li>
-          {{end}}
-        </ul>
+      {{range .IssuesPorEstado}}
+      <div class="estado-grupo">
+        <div class="rotulo"><span>{{.Estado}}{{if .Concluido}} (7 dias){{end}}</span><span>{{len .Issues}}</span></div>
+        {{range .Issues}}
+        <a class="issue-linha" href="{{.URL}}" target="_blank" rel="noopener">
+          <span class="id">{{.Identifier}}</span>
+          <span class="t">{{.Title}}</span>
+          <span class="meta" title="{{dataHora .UpdatedAt}}">{{haQuanto .UpdatedAt}}</span>
+        </a>
         {{end}}
+      </div>
+      {{else}}
+      <p class="vazio">Nenhuma issue neste escopo.</p>
       {{end}}
     </section>
 
     <section>
       <h2>PRs abertos</h2>
-      {{if not .PRsAbertos}}
-      <p class="vazio">Nenhum PR aberto neste escopo.</p>
-      {{else}}
-      <ol class="fila">
+      {{if .PRsAbertos}}
+      <div class="prs-escopo">
         {{range .PRsAbertos}}
-        <li class="ticket compacto risco-{{.RiskLevel}}">
-          <div class="ticket-risco">
-            <span class="nivel">{{risco .RiskLevel}}</span>
-            <span class="espera">aberto {{haQuanto .CreatedAt}}</span>
-          </div>
-          <div class="ticket-corpo">
-            <h3 class="ticket-titulo"><a href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>{{if .Draft}} <span class="rascunho">rascunho</span>{{end}}</h3>
-            <p class="ticket-meta">
-              <span>{{.Repo}}#{{.Number}}</span>
-              <span class="diff"><span class="mais">+{{.Additions}}</span> <span class="menos">−{{.Deletions}}</span></span>
-            </p>
-            {{if .RiskReasons}}
-            <ul class="motivos">{{range .RiskReasons}}<li>{{.}}</li>{{end}}</ul>
-            {{end}}
-          </div>
-        </li>
+        <a class="pr-linha" href="/prs?abrir={{.ID}}#pr-{{.ID}}">
+          <span class="risco {{.RiskLevel}}">{{risco .RiskLevel}}</span>
+          <span class="fila-texto">
+            <span class="t">{{.Title}}{{if .Draft}} <span class="meta">draft</span>{{end}}</span>
+            <span class="motivos">{{range $i, $m := .RiskReasons}}{{if $i}} · {{end}}{{$m}}{{else}}Nenhuma regra de risco casou{{end}}</span>
+          </span>
+          <span class="meta">#{{.Number}}</span>
+        </a>
         {{end}}
-      </ol>
+      </div>
+      {{else}}
+      <p class="vazio">Nenhum PR aberto.</p>
+      {{end}}
+    </section>
+  </div>
+
+  <div class="coluna">
+    <section>
+      <div class="secao-titulo">
+        <h2>O que este escopo faz</h2>
+        <span class="meta">{{.Product.Caminho}}</span>
+      </div>
+      {{if .Product.HTML}}
+      <div class="documento markdown">{{.Product.HTML}}</div>
+      {{else}}
+      <div class="criar">{{.Product.Aviso}}</div>
       {{end}}
     </section>
 
     <section>
       <h2>Eventos recentes</h2>
-      {{if not .Eventos}}
-      <p class="vazio">Nenhum evento registrado neste escopo.</p>
+      {{if .Eventos}}
+      <div class="linha-do-tempo">
+        {{range .Eventos}}
+        <div class="item{{if .NaoVisto}} nao-visto{{end}}">
+          <div class="meta"><time datetime="{{rfc3339 .OccurredAt}}" title="{{dataHora .OccurredAt}}">{{horaEvento .OccurredAt}}</time><a href="{{.URL}}" target="_blank" rel="noopener">{{refCurta .Ref}}</a></div>
+          <div class="texto"><span class="secundario">{{rotulo .Evento}}:</span> {{texto .Evento}}</div>
+        </div>
+        {{end}}
+      </div>
       {{else}}
-      {{template "eventos" .Eventos}}
+      <p class="vazio">Nenhum evento registrado neste escopo.</p>
       {{end}}
     </section>
   </div>
-
-  <aside class="documento" aria-label="Seção do PRODUCT.md">
-    <p class="documento-origem">{{if .Escopo}}PRODUCT.md, seção “{{.Escopo}}”{{else}}PRODUCT.md{{end}}</p>
-    {{if .Product.Aviso}}<p class="nota">{{.Product.Aviso}}</p>{{end}}
-    <div class="markdown">{{.Product.HTML}}</div>
-  </aside>
 </div>
 {{end}}

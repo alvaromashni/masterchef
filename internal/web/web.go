@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/alvaromashni/masterchef/internal/config"
@@ -51,10 +52,32 @@ func New(cfg *config.Config, st *store.Store, logger *slog.Logger) (*Server, err
 
 	// Funções que os templates podem chamar, ex.: {{haQuanto .Sync.UltimoOK}}.
 	funcoes := template.FuncMap{
-		"dataHora": dataHora,
-		"haQuanto": func(t time.Time) string { return haQuanto(time.Now(), t) },
-		"risco":    textoRisco,
-		"rfc3339":  func(t time.Time) string { return t.UTC().Format(time.RFC3339) },
+		"dataHora":   dataHora,
+		"hora":       hora,
+		"haQuanto":   func(t time.Time) string { return haQuanto(time.Now(), t) },
+		"idade":      func(t time.Time) string { return duracaoCurta(time.Since(t)) },
+		"horaEvento": func(t time.Time) string { return horaDoEvento(time.Now(), t) },
+		"dataVisita": dataVisita,
+		"risco":      textoRisco,
+		"rfc3339":    func(t time.Time) string { return t.UTC().Format(time.RFC3339) },
+		"refCurta":   refCurta,
+		"rotulo":     rotuloEvento,
+		"texto":      textoEvento,
+		"inc":        func(n int) int { return n + 1 },
+		"dec":        func(n int) int { return n - 1 },
+		"total": func(gs []GrupoEscopo) int {
+			n := 0
+			for _, g := range gs {
+				n += len(g.Eventos)
+			}
+			return n
+		},
+		"plural": func(n int, um, varios string) string {
+			if n == 1 {
+				return um
+			}
+			return varios
+		},
 		"escopo": func(nome string) string {
 			if nome == "" {
 				return "a classificar"
@@ -65,7 +88,7 @@ func New(cfg *config.Config, st *store.Store, logger *slog.Logger) (*Server, err
 		"linkEscopo": linkEscopo,
 	}
 
-	for _, pagina := range []string{"index.html", "prs.html", "mudancas.html", "escopo.html", "decisoes.html"} {
+	for _, pagina := range []string{"index.html", "prs.html", "mudancas.html", "escopo.html", "decisoes.html", "guia.html"} {
 		tmpl, err := template.New(pagina).Funcs(funcoes).ParseFS(templatesFS, "templates/layout.html", "templates/"+pagina)
 		if err != nil {
 			return nil, fmt.Errorf("carregando template %s: %w", pagina, err)
@@ -88,6 +111,7 @@ func (s *Server) Handler() http.Handler {
 	// O padrão mais específico ("decisoes" fixo) vence o genérico ({escopo}).
 	mux.HandleFunc("GET /p/{produto}/decisoes", s.handleDecisoes)
 	mux.HandleFunc("GET /p/{produto}/{escopo}", s.handleEscopo)
+	mux.HandleFunc("GET /guia", s.handleGuia)
 
 	static, _ := fs.Sub(staticFS, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
@@ -98,9 +122,20 @@ func (s *Server) Handler() http.Handler {
 // dadosPagina é o que todo template recebe. Sync alimenta o aviso do topo,
 // que aparece em todas as páginas (seção 11 do CONTEXT.md).
 type dadosPagina struct {
-	Titulo   string
-	Sync     store.EstadoSync
-	Conteudo any
+	Titulo    string
+	Secao     string // aba marcada no topo: matriz, mudancas, prs ou guia
+	Sync      store.EstadoSync
+	Falha     *FalhaSync // nil = último sync deu certo
+	NaoVistos int        // contador da aba "O que mudou"
+	NaFila    int        // contador da aba "Fila de review"
+	Conteudo  any
+}
+
+// secaoDaPagina diz qual aba do topo fica marcada. Escopo e decisões
+// pertencem à matriz, de onde se chega a elas.
+var secaoDaPagina = map[string]string{
+	"index.html": "matriz", "escopo.html": "matriz", "decisoes.html": "matriz",
+	"mudancas.html": "mudancas", "prs.html": "prs", "guia.html": "guia",
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -112,13 +147,30 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "index.html", "Matriz", montarMatriz(s.cfg.Produtos, d, s.cfg.StaleAfter, time.Now()))
 }
 
+// FilaDeReview é o modelo de "/prs". Aberto é o PR que já vem expandido:
+// o do parâmetro ?abrir=<id> (link da página de escopo) ou o primeiro.
+type FilaDeReview struct {
+	Itens  []ItemFila
+	Aberto int64
+}
+
 func (s *Server) handlePRs(w http.ResponseWriter, r *http.Request) {
 	d, err := s.carregarDados(r)
 	if err != nil {
 		s.erroInterno(w, err)
 		return
 	}
-	s.render(w, r, "prs.html", "Fila de review", montarFila(d))
+	fila := FilaDeReview{Itens: montarFila(d)}
+	if id, err := strconv.ParseInt(r.URL.Query().Get("abrir"), 10, 64); err == nil {
+		fila.Aberto = id
+	} else if len(fila.Itens) > 0 {
+		fila.Aberto = fila.Itens[0].PR.ID
+	}
+	s.render(w, r, "prs.html", "Fila de review", fila)
+}
+
+func (s *Server) handleGuia(w http.ResponseWriter, r *http.Request) {
+	s.render(w, r, "guia.html", "Guia de UI", nil)
 }
 
 // carregarDados lê issues, PRs e vínculos do banco. Com poucos produtos,
@@ -158,7 +210,14 @@ func (s *Server) handleMudancas(w http.ResponseWriter, r *http.Request) {
 		s.erroInterno(w, err)
 		return
 	}
-	s.render(w, r, "mudancas.html", "O que mudou", montarMudancas(s.cfg.Produtos, eventos))
+	visita, err := s.store.UltimaVisita(r.Context())
+	if err != nil {
+		s.erroInterno(w, err)
+		return
+	}
+	m := montarMudancas(s.cfg.Produtos, eventos)
+	m.UltimaVisita = visita
+	s.render(w, r, "mudancas.html", "O que mudou", m)
 }
 
 // handleMarcarVisto grava last_visit com a data enviada pelo formulário
@@ -188,7 +247,9 @@ func (s *Server) handleMarcarVisto(w http.ResponseWriter, r *http.Request) {
 	// (formulário comum), redirecionamos de volta para a página.
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprint(w, `<div id="mudancas"><p class="vazio">Tudo marcado como visto.</p></div>`)
+		// Mesmo HTML do estado vazio de mudancas.html, sem o botão.
+		fmt.Fprintf(w, `<div id="mudancas" class="estreita"><div class="cabecalho"><div><h1>O que mudou</h1><p class="subtitulo">Última visita marcada às %[1]s.</p></div></div>`+
+			`<div id="eventos" class="nada-novo"><p class="nada-novo-titulo">Tudo marcado como visto às %[1]s.</p><p>Eventos detectados nos próximos syncs aparecem aqui.</p></div></div>`, hora(time.Now()))
 		return
 	}
 	http.Redirect(w, r, "/mudancas", http.StatusSeeOther)
@@ -219,16 +280,21 @@ func (s *Server) handleEscopo(w http.ResponseWriter, r *http.Request) {
 		s.erroInterno(w, err)
 		return
 	}
+	visita, err := s.store.UltimaVisita(r.Context())
+	if err != nil {
+		s.erroInterno(w, err)
+		return
+	}
 
-	doc := product.Documento{Aviso: "Issues sem escopo não têm seção no PRODUCT.md."}
+	doc := product.Documento{Aviso: "Issues sem escopo não têm seção no PRODUCT.md.", Caminho: product.Caminho(p.Slug, "PRODUCT.md")}
 	if alvo != aClassificar {
 		doc = s.markdown.SecaoDoEscopo(p.Slug, alvo)
 	}
-	titulo := p.Nome + " · " + alvo
+	titulo := p.Nome + " / " + alvo
 	if alvo == aClassificar {
-		titulo = p.Nome + " · a classificar"
+		titulo = p.Nome + " / a classificar"
 	}
-	s.render(w, r, "escopo.html", titulo, montarPaginaEscopo(p, alvo, d, eventos, doc))
+	s.render(w, r, "escopo.html", titulo, montarPaginaEscopo(p, alvo, d, eventos, doc, visita, s.cfg.StaleAfter, time.Now()))
 }
 
 // handleDecisoes mostra o DECISIONS.md do produto.
@@ -238,9 +304,10 @@ func (s *Server) handleDecisoes(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	s.render(w, r, "decisoes.html", p.Nome+" · decisões", map[string]any{
-		"Produto": p,
-		"Doc":     s.markdown.Decisoes(p.Slug),
+	s.render(w, r, "decisoes.html", "Decisões / "+p.Nome, map[string]any{
+		"Produto":  p,
+		"Produtos": s.cfg.Produtos,
+		"Doc":      s.markdown.Decisoes(p.Slug),
 	})
 }
 
@@ -252,6 +319,25 @@ func (s *Server) produto(slug string) (config.Produto, bool) {
 		}
 	}
 	return config.Produto{}, false
+}
+
+// contadores calcula os números das abas do topo: eventos não vistos e
+// PRs aguardando review. Rodam em toda página; com poucos produtos, é barato.
+func (s *Server) contadores(r *http.Request) (naoVistos, naFila int, err error) {
+	eventos, err := s.eventosNaoVistos(r)
+	if err != nil {
+		return 0, 0, err
+	}
+	prs, err := s.store.ListarPRs(r.Context())
+	if err != nil {
+		return 0, 0, err
+	}
+	for _, p := range prs {
+		if aguardaReview(p) {
+			naFila++
+		}
+	}
+	return len(eventos), naFila, nil
 }
 
 // erroInterno loga o erro com detalhes e mostra ao usuário só uma mensagem genérica.
@@ -269,7 +355,17 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, pagina, titulo s
 		s.erroInterno(w, err)
 		return
 	}
-	dados := dadosPagina{Titulo: titulo, Sync: sync, Conteudo: conteudo}
+	dados := dadosPagina{
+		Titulo:   titulo,
+		Secao:    secaoDaPagina[pagina],
+		Sync:     sync,
+		Falha:    lerFalhaSync(sync.UltimoErro),
+		Conteudo: conteudo,
+	}
+	if dados.NaoVistos, dados.NaFila, err = s.contadores(r); err != nil {
+		s.erroInterno(w, err)
+		return
+	}
 
 	tmpl, ok := s.paginas[pagina]
 	if !ok {

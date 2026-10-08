@@ -16,6 +16,8 @@ type Mudancas struct {
 	// como visto" grava esse valor (e não "agora"): um evento que chegar
 	// enquanto a página está aberta continua como não visto.
 	VistoAte time.Time
+	// UltimaVisita é quando o dono marcou "visto" pela última vez (zero = nunca).
+	UltimaVisita time.Time
 }
 
 // GrupoProduto junta os eventos de um produto, separados por escopo.

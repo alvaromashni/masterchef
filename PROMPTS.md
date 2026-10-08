@@ -125,6 +125,31 @@ descrição da seção 14.
 
 ---
 
+## Fase 6 — Implementação do design do Claude Design
+
+```
+Leia o CONTEXT.md. As fases 0 a 5 estão mergeadas.
+
+Implemente apenas a Fase 6: aplicar ao painel o redesign minimalista feito no
+Claude Design ("Redesign de painel minimalista"). O design substitui a direção
+visual da Fase 5.
+
+- Cor só quando significa algo: vermelho = risco alto, âmbar = médio,
+  violeta = não visto, hachura = parada. O resto é monocromático.
+- IBM Plex Mono para fatos (ids, repos, horários), Schibsted Grotesk para texto
+  humano. Fontes embutidas no binário, sem CDN.
+- Linhas de 1px, sem cartões nem sombras. Um único botão sólido no app.
+- Todo sinal mostra o motivo; estados vazios dizem qual arquivo criar.
+- Topo com contadores (não vistos, fila de review) e estado do sync em toda página.
+- Nova página /guia com o guia de UI (princípios, cor, tipografia, componentes).
+- Interações só com htmx e HTML nativo (<details>), sem JS próprio.
+
+Ao terminar: go vet, go test ./..., screenshots lado a lado com o design no PR
+e a descrição da seção 14.
+```
+
+---
+
 ## Dica de revisão para cada PR
 
 Antes de aprovar, peça numa **sessão nova** (sem o contexto da implementação):
