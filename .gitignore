@@ -1,5 +1,6 @@
 # Binário e banco local
 /painel
+/painel.exe
 *.db
 *.db-shm
 *.db-wal
