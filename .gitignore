@@ -6,3 +6,6 @@
 
 # Config real fica no repo central, não aqui
 /config.yaml
+
+# Chaves locais
+.env
