@@ -288,6 +288,7 @@ Se um arquivo não existir, a tela mostra um aviso amigável, nunca um erro.
 | 3 | Eventos + tela "o que mudou" |
 | 4 | Páginas de escopo e decisões com Markdown do repo central |
 | 5 | Refinamento de UI: identidade visual, legibilidade do risco, celular |
+| 6 | Implementação do design do Claude Design (visual minimalista, guia de UI) |
 | Futuro | Servidor MCP no mesmo binário (SDK oficial de MCP para Go): tools somente leitura do estado + gravação de log estruturado do agente |
 | Futuro | Revisor independente com outro modelo (opcional, sempre rotulado como opinião) |
 

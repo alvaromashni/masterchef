@@ -52,7 +52,7 @@ func TestIndex(t *testing.T) {
 		t.Fatalf("status = %d, esperava 200", rec.Code)
 	}
 	corpo := rec.Body.String()
-	for _, trecho := range []string{"<h1>Matriz</h1>", "htmx.org", "/static/painel.css", "Produto X", "a classificar", "Nenhum sync concluído ainda"} {
+	for _, trecho := range []string{"<h1>Matriz</h1>", "htmx.org", "/static/painel.css", "Produto X", "a classificar", "nenhum sync ainda"} {
 		if !strings.Contains(corpo, trecho) {
 			t.Errorf("página não contém %q", trecho)
 		}
@@ -70,7 +70,7 @@ func TestCaminhoInexistenteDa404(t *testing.T) {
 func TestArquivosEstaticos(t *testing.T) {
 	h := novoServidor(t)
 	// O CSS e as fontes que ele referencia precisam estar embutidos no binário.
-	for _, caminho := range []string{"/static/painel.css", "/static/fontes/barlow-latin-400-normal.woff2", "/static/fontes/barlow-semi-condensed-latin-700-normal.woff2"} {
+	for _, caminho := range []string{"/static/painel.css", "/static/fontes/schibsted-grotesk-latin-wght-normal.woff2", "/static/fontes/ibm-plex-mono-latin-400-normal.woff2", "/static/fontes/ibm-plex-mono-latin-500-normal.woff2"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest("GET", caminho, nil))
 		if rec.Code != http.StatusOK {
@@ -102,7 +102,7 @@ func TestMudancas_AbrirNaoMarcaComoVisto(t *testing.T) {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest("GET", "/mudancas", nil))
 		corpo := rec.Body.String()
-		if rec.Code != http.StatusOK || !strings.Contains(corpo, "Mergeado: login") || !strings.Contains(corpo, "2026-10-07T10:00:00Z") {
+		if rec.Code != http.StatusOK || !strings.Contains(corpo, "PR mergeado") || !strings.Contains(corpo, ">login<") || !strings.Contains(corpo, "2026-10-07T10:00:00Z") {
 			t.Fatalf("abertura %d: status %d, evento ou data ausente no corpo", i+1, rec.Code)
 		}
 	}
@@ -168,7 +168,7 @@ func TestPaginasDeEscopoEDecisoes(t *testing.T) {
 		contem  []string
 		naoTem  []string
 	}{
-		{"/p/produto-x/api", 200, []string{"Produto X · api", "X-1", "In Progress", "Login com token", "Nenhum PR aberto"}, []string{"X-2"}},
+		{"/p/produto-x/api", 200, []string{"Produto X / api", "X-1", "In Progress", "Login com token", "Nenhum PR aberto"}, []string{"X-2"}},
 		{"/p/produto-x/front", 200, []string{"## isto não é um título", "Nenhuma issue"}, nil},
 		{"/p/produto-x/a-classificar", 200, []string{"X-2", "Issues sem escopo não têm seção"}, []string{"X-1"}},
 		{"/p/produto-x/decisoes", 200, []string{"SQLite em vez de Postgres"}, []string{"<script>alert"}},
@@ -207,5 +207,50 @@ func TestMatrizLigaParaAsPaginas(t *testing.T) {
 		if !strings.Contains(rec.Body.String(), link) {
 			t.Errorf("matriz sem o link %s", link)
 		}
+	}
+}
+
+func TestGuiaETopo(t *testing.T) {
+	h, st := novoServidorComStore(t)
+	quando := time.Now().UTC().Add(-time.Hour)
+	err := st.SalvarSync(context.Background(), store.SyncResultado{
+		Iniciado: quando,
+		PRs: []store.PR{
+			{ID: 1, Repo: "o/api", Number: 1, ProductSlug: "produto-x", Scope: "api", Title: "PR um", State: "open", RiskLevel: "baixo", CreatedAt: quando, UpdatedAt: quando},
+			{ID: 2, Repo: "o/api", Number: 2, ProductSlug: "produto-x", Scope: "api", Title: "PR dois", State: "open", RiskLevel: "alto", CreatedAt: quando, UpdatedAt: quando},
+			{ID: 3, Repo: "o/api", Number: 3, ProductSlug: "produto-x", Scope: "api", Title: "Rascunho", State: "open", Draft: true, RiskLevel: "baixo", CreatedAt: quando, UpdatedAt: quando},
+		},
+		Eventos: []store.Evento{{OccurredAt: quando, ProductSlug: "produto-x", Scope: "api", Kind: store.EventoPRAberto, Ref: "o/api#1", Summary: "Aberto: PR um", URL: "u"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	get := func(caminho string) string {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("GET", caminho, nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: status %d", caminho, rec.Code)
+		}
+		return rec.Body.String()
+	}
+
+	guia := get("/guia")
+	for _, trecho := range []string{"Guia de UI", "Cor só quando significa algo", `href="/guia" aria-current="page"`} {
+		if !strings.Contains(guia, trecho) {
+			t.Errorf("guia sem %q", trecho)
+		}
+	}
+	// Contadores das abas: 1 evento não visto e 2 PRs na fila (o rascunho não conta).
+	if !strings.Contains(guia, `<span class="contador novo" title="Mudanças não vistas">1</span>`) || !strings.Contains(guia, `<span class="contador" title="PRs aguardando review">2</span>`) {
+		t.Errorf("contadores do topo errados")
+	}
+
+	// A fila abre o primeiro PR (risco alto) por padrão, ou o de ?abrir=.
+	if fila := get("/prs"); !strings.Contains(fila, `<details id="pr-2" open>`) || strings.Contains(fila, `<details id="pr-1" open>`) {
+		t.Errorf("sem ?abrir, só o primeiro PR da fila deveria vir aberto")
+	}
+	if fila := get("/prs?abrir=1"); !strings.Contains(fila, `<details id="pr-1" open>`) || strings.Contains(fila, `<details id="pr-2" open>`) {
+		t.Errorf("?abrir=1 deveria abrir só o PR 1")
 	}
 }

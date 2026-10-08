@@ -68,7 +68,7 @@ func TestSecaoDoEscopo(t *testing.T) {
 
 	t.Run("arquivo ausente vira aviso, não erro", func(t *testing.T) {
 		doc := l.SecaoDoEscopo("produto-y", "api")
-		if doc.HTML != "" || !strings.Contains(doc.Aviso, "não encontrado") || !strings.Contains(doc.Aviso, "PRODUCT.md") {
+		if doc.HTML != "" || !strings.Contains(doc.Aviso, "não foi encontrado") || !strings.Contains(doc.Aviso, "PRODUCT.md") {
 			t.Errorf("esperava aviso de arquivo ausente, veio %+v", doc)
 		}
 	})
@@ -77,16 +77,30 @@ func TestSecaoDoEscopo(t *testing.T) {
 func TestDecisoes(t *testing.T) {
 	l := NewLeitor("testdata/central")
 
-	doc := l.Decisoes("produto-x")
-	html := string(doc.HTML)
-	if !strings.Contains(html, "SQLite em vez de Postgres") {
-		t.Errorf("DECISIONS.md não renderizado:\n%s", html)
+	d := l.Decisoes("produto-x")
+	if d.Aviso != "" {
+		t.Fatalf("aviso inesperado: %s", d.Aviso)
 	}
-	if strings.Contains(html, "<script>") {
-		t.Errorf("HTML cru do Markdown não pode chegar à página:\n%s", html)
+	if d.Caminho != "produtos/produto-x/DECISIONS.md" {
+		t.Errorf("Caminho = %q", d.Caminho)
+	}
+	if !strings.Contains(string(d.Intro), "Registro das decisões") || strings.Contains(string(d.Intro), "<h1>") {
+		t.Errorf("Intro deveria ter o texto e não o título # :\n%s", d.Intro)
+	}
+	if len(d.Itens) != 2 {
+		t.Fatalf("esperava 2 decisões (o ## dentro do bloco de código não conta), veio %d: %+v", len(d.Itens), d.Itens)
+	}
+	if got := d.Itens[0]; got.Data != "2026-10-01" || got.Titulo != "SQLite em vez de Postgres" || got.Ancora != "decisao-1" {
+		t.Errorf("primeira decisão = %+v", got)
+	}
+	if got := d.Itens[1]; got.Data != "" || got.Titulo != "Sem login social no MVP" || !strings.Contains(string(got.HTML), "<li>E-mail e senha</li>") {
+		t.Errorf("decisão sem data = %+v", got)
+	}
+	if strings.Contains(string(d.Itens[0].HTML), "<script>") {
+		t.Errorf("HTML cru do Markdown não pode chegar à página:\n%s", d.Itens[0].HTML)
 	}
 
-	if doc := l.Decisoes("produto-y"); !strings.Contains(doc.Aviso, "DECISIONS.md") {
-		t.Errorf("esperava aviso de arquivo ausente, veio %+v", doc)
+	if d := l.Decisoes("produto-y"); !strings.Contains(d.Aviso, "produtos/produto-y/DECISIONS.md não foi encontrado") {
+		t.Errorf("esperava aviso de arquivo ausente, veio %+v", d)
 	}
 }

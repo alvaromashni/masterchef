@@ -4,30 +4,35 @@ Painel local e **somente leitura** que mostra o estado real dos produtos a parti
 Linear, do GitHub e dos Markdown do repo central. Veja o [CONTEXT.md](CONTEXT.md) para
 a visão completa e as regras do projeto.
 
-> Status: **Fase 5**. O painel coleta issues do Linear e PRs do GitHub, calcula o
+> Status: **Fase 6**. O painel coleta issues do Linear e PRs do GitHub, calcula o
 > risco de cada PR, vincula issues a PRs, registra o que mudou a cada ciclo e mostra
 > a matriz, a fila de review, a tela "o que mudou" e as páginas de escopo e de
-> decisões, com o Markdown do repo central. A Fase 5 refinou o visual (fontes
-> Barlow embutidas no binário, licença OFL em `internal/web/static/fontes`).
+> decisões, com o Markdown do repo central. A Fase 6 aplicou o design minimalista
+> do Claude Design (Schibsted Grotesk e IBM Plex Mono embutidas no binário, licença
+> OFL em `internal/web/static/fontes`). As regras visuais ficam em `/guia`.
 
 ## Telas
 
 - **`/` Matriz**: produto × escopo. Cada célula mostra issues em andamento, PRs
-  aguardando review (abertos e não rascunho), um ▲ se algum desses PRs tem risco
-  alto e há quanto tempo foi a última atividade. Células sem atividade há mais que
-  `stale_after` e com issues em andamento ficam amarelas ("paradas").
+  aguardando review (abertos e não rascunho), quantos desses têm risco alto (marca
+  vermelha) e há quanto tempo foi a última atividade. Células sem atividade há mais
+  que `stale_after` e com issues em andamento ficam hachuradas ("paradas"). A matriz
+  se atualiza sozinha a cada 60s.
 - **`/mudancas` O que mudou**: mudanças desde a última vez que você clicou em
   "Marcar como visto", agrupadas por produto e escopo. Abrir a página não marca nada
   como visto. A matriz mostra quantas mudanças não vistas cada célula tem.
 - **`/prs` Fila de review**: PRs abertos e não rascunho, do maior risco para o
   menor e, no mesmo risco, do mais antigo para o mais novo. Cada PR mostra os
   motivos do risco e as issues vinculadas com os critérios de aceite
-  (checkboxes `- [ ]` da descrição da issue).
+  (checkboxes `- [ ]` da descrição da issue). Cada linha abre e fecha; `/prs?abrir=<id>`
+  abre um PR específico.
 - **`/p/<produto>/<escopo>` Escopo**: aberta ao clicar numa célula da matriz. Mostra
-  as issues agrupadas por estado, os PRs abertos com risco e motivos, os últimos 20
+  as issues agrupadas por estado (concluídas e canceladas só dos últimos 7 dias), os PRs abertos com risco e motivos, os últimos 20
   eventos e, ao lado, a seção `## <escopo>` do `PRODUCT.md`. A coluna "a classificar"
   é `/p/<produto>/a-classificar`.
-- **`/p/<produto>/decisoes` Decisões**: o `DECISIONS.md` do produto, renderizado.
+- **`/p/<produto>/decisoes` Decisões**: o `DECISIONS.md` do produto, com um índice.
+  Cada seção `## AAAA-MM-DD: título` vira uma decisão.
+- **`/guia` Guia de UI**: as regras visuais do painel (cor, tipografia, componentes).
 
 ## Repo central (PRODUCT.md e DECISIONS.md)
 

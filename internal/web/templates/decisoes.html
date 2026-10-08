@@ -1,13 +1,43 @@
 {{define "conteudo"}}
 <nav class="trilha" aria-label="Você está em">
-  <a href="/">Matriz</a> / <span>{{.Produto.Nome}}</span> / <span>Decisões</span>
+  <a href="/">matriz</a><span>/</span><span>{{.Produto.Slug}}</span><span>/</span><span class="atual">decisoes</span>
 </nav>
-<div class="cabecalho">
-  <h1>Decisões <span class="do-produto">de {{.Produto.Nome}}</span></h1>
-  <p class="subtitulo">Conteúdo do DECISIONS.md do produto, no repo central.</p>
+<div class="cabecalho cabecalho-grande">
+  <div>
+    <h1>Decisões <span class="depois">/ {{.Produto.Nome}}</span></h1>
+    <p class="mono">{{.Doc.Caminho}}</p>
+  </div>
+  {{if gt (len .Produtos) 1}}
+  <nav class="abas-produto" aria-label="Produtos">
+    {{range .Produtos}}<a href="/p/{{.Slug}}/decisoes"{{if eq .Slug $.Produto.Slug}} aria-current="page"{{end}}>{{.Nome}}</a>{{end}}
+  </nav>
+  {{end}}
 </div>
-<article class="documento documento-largo">
-  {{if .Doc.Aviso}}<p class="nota">{{.Doc.Aviso}}</p>{{end}}
-  <div class="markdown">{{.Doc.HTML}}</div>
-</article>
+
+{{with .Doc}}
+{{if .Aviso}}
+<div class="criar criar-grande">
+  <p class="criar-titulo">Ainda não há decisões registradas para {{$.Produto.Nome}}.</p>
+  <p>Crie <span class="mono">{{.Caminho}}</span> no repo central, com uma seção <span class="mono">## AAAA-MM-DD: título</span> por decisão. O painel lê o arquivo a cada abertura da página.</p>
+  <p class="meta">{{.Aviso}}</p>
+</div>
+{{else}}
+<div class="decisoes">
+  <nav class="indice" aria-label="Nesta página">
+    <div class="rotulo">Nesta página</div>
+    {{range .Itens}}<a href="#{{.Ancora}}">{{if .Data}}<span class="meta">{{slice .Data 5}}</span>{{end}}<span>{{.Titulo}}</span></a>{{end}}
+  </nav>
+  <article>
+    {{if .Intro}}<div class="intro markdown">{{.Intro}}</div>{{end}}
+    {{range .Itens}}
+    <section class="decisao" id="{{.Ancora}}">
+      {{if .Data}}<span class="meta">{{.Data}}</span>{{end}}
+      <h2>{{.Titulo}}</h2>
+      <div class="markdown">{{.HTML}}</div>
+    </section>
+    {{end}}
+  </article>
+</div>
+{{end}}
+{{end}}
 {{end}}

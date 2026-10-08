@@ -49,13 +49,13 @@ func TestMontarMatriz(t *testing.T) {
 	if api.EmAndamento != 1 {
 		t.Errorf("x/api em andamento = %d, esperava 1 (a issue 4 foi para o front pelo PR)", api.EmAndamento)
 	}
-	if api.AguardandoReview != 0 || api.RiscoAltoPendente {
+	if api.AguardandoReview != 0 || api.AltoPendentes != 0 {
 		t.Errorf("x/api: rascunho não aguarda review: %+v", api)
 	}
 	if !api.UltimaAtividade.Equal(ha(time.Hour)) {
 		t.Errorf("x/api última atividade = %v, esperava a issue de 1h atrás", api.UltimaAtividade)
 	}
-	if front.EmAndamento != 1 || front.AguardandoReview != 1 || !front.RiscoAltoPendente {
+	if front.EmAndamento != 1 || front.AguardandoReview != 1 || front.AltoPendentes != 1 {
 		t.Errorf("x/front = %+v; esperava 1 issue, 1 PR e risco alto", front)
 	}
 	if !front.Parada {

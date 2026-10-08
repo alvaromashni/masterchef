@@ -12,8 +12,9 @@ import (
 // Matriz é o modelo da página "/": linhas = produtos, colunas = escopos
 // mais a coluna "a classificar" no fim.
 type Matriz struct {
-	Escopos []string // nomes das colunas de escopo (sem "a classificar")
-	Linhas  []LinhaMatriz
+	Escopos      []string // nomes das colunas de escopo (sem "a classificar")
+	Linhas       []LinhaMatriz
+	TotalEscopos int // escopos configurados em todos os produtos
 }
 
 // LinhaMatriz é um produto e suas células, na mesma ordem de Matriz.Escopos.
@@ -29,14 +30,15 @@ type Celula struct {
 	// (ex.: produto Y não tem "infra"); a tela mostra um traço.
 	Existe bool
 
-	EmAndamento       int       // issues com estado do tipo "started"
-	AguardandoReview  int       // PRs abertos e que não são rascunho
-	RiscoAltoPendente bool      // algum desses PRs tem risco alto
-	UltimaAtividade   time.Time // mudança mais recente de issue ou PR da célula
-	Parada            bool      // sem atividade há mais que stale_after, com issues em andamento
-	NaoVistas         int       // eventos desde a última vez que o dono marcou "visto"
+	EmAndamento      int       // issues com estado do tipo "started"
+	AguardandoReview int       // PRs abertos e que não são rascunho
+	AltoPendentes    int       // desses PRs, quantos têm risco alto
+	UltimaAtividade  time.Time // mudança mais recente de issue ou PR da célula
+	Parada           bool      // sem atividade há mais que stale_after, com issues em andamento
+	NaoVistas        int       // eventos desde a última vez que o dono marcou "visto"
 
-	Link string // endereço da página do escopo (/p/<produto>/<escopo>)
+	Link         string // endereço da página do escopo (/p/<produto>/<escopo>)
+	AClassificar bool   // é a coluna "a classificar"
 }
 
 // aClassificar é a chave interna da coluna "a classificar".
@@ -66,6 +68,7 @@ func montarMatriz(produtos []config.Produto, d dadosPainel, staleAfter time.Dura
 	// aparecem pela primeira vez no config.yaml.
 	vistos := map[string]bool{}
 	for _, p := range produtos {
+		m.TotalEscopos += len(p.Escopos)
 		for _, e := range p.Escopos {
 			if !vistos[e.Nome] {
 				vistos[e.Nome] = true
@@ -92,7 +95,7 @@ func montarMatriz(produtos []config.Produto, d dadosPainel, staleAfter time.Dura
 		if aguardaReview(p) {
 			c.AguardandoReview++
 			if p.RiskLevel == risk.Alto {
-				c.RiscoAltoPendente = true
+				c.AltoPendentes++
 			}
 		}
 	}
@@ -138,6 +141,7 @@ func montarMatriz(produtos []config.Produto, d dadosPainel, staleAfter time.Dura
 			}
 		}
 		linha.AClassificar.Existe = true
+		linha.AClassificar.AClassificar = true
 		linha.AClassificar.Link = linkEscopo(p.Slug, aClassificar)
 
 		for i := range linha.Celulas {
@@ -181,7 +185,7 @@ func registrarAtividade(c *Celula, t time.Time) {
 func somarCelula(destino *Celula, c Celula) {
 	destino.EmAndamento += c.EmAndamento
 	destino.AguardandoReview += c.AguardandoReview
-	destino.RiscoAltoPendente = destino.RiscoAltoPendente || c.RiscoAltoPendente
+	destino.AltoPendentes += c.AltoPendentes
 	destino.NaoVistas += c.NaoVistas
 	registrarAtividade(destino, c.UltimaAtividade)
 }

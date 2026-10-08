@@ -1,54 +1,62 @@
 {{define "conteudo"}}
-<div class="cabecalho">
-  <h1>Fila de review</h1>
-  <p class="subtitulo">PRs abertos e prontos para review. Risco alto primeiro; no mesmo risco, quem espera há mais tempo.</p>
-</div>
-{{if not .}}
-<p class="vazio">Nenhum PR aguardando review agora. Rascunhos não entram na fila.</p>
-{{else}}
-<ol class="fila">
-  {{range .}}
-  <li class="ticket risco-{{.PR.RiskLevel}}">
-    <div class="ticket-risco">
-      <span class="nivel">{{risco .PR.RiskLevel}}</span>
-      <span class="espera">aberto {{haQuanto .PR.CreatedAt}}</span>
+<div class="media">
+  <div class="cabecalho">
+    <div>
+      <h1>Fila de review</h1>
+      <p class="subtitulo">{{if .Itens}}{{len .Itens}} {{plural (len .Itens) "PR aberto" "PRs abertos"}}, sem drafts. Ordenados por risco, depois por idade.{{else}}Nenhum PR aguardando review agora. Drafts não entram na fila.{{end}}</p>
     </div>
-    <div class="ticket-corpo">
-      <h2 class="ticket-titulo"><a href="{{.PR.URL}}" target="_blank" rel="noopener">{{.PR.Title}}</a></h2>
-      <p class="ticket-meta">
-        <span>{{.PR.Repo}}#{{.PR.Number}}</span>
-        <a href="{{linkEscopo .PR.ProductSlug .PR.Scope}}">{{.PR.ProductSlug}} / {{escopo .PR.Scope}}</a>
-        <span class="diff"><span class="mais">+{{.PR.Additions}}</span> <span class="menos">−{{.PR.Deletions}}</span></span>
-        <code>{{.PR.Branch}}</code>
-      </p>
-      {{if .PR.RiskReasons}}
-      <ul class="motivos">
-        {{range .PR.RiskReasons}}<li>{{.}}</li>{{end}}
-      </ul>
-      {{end}}
+  </div>
 
-      {{if .Issues}}
-        {{range .Issues}}
-        <div class="issue">
-          <p class="issue-titulo">
-            <a href="{{.Issue.URL}}" target="_blank" rel="noopener">{{.Issue.Identifier}}</a>
-            {{.Issue.Title}} <span class="estado">{{.Issue.StateName}}</span>
-          </p>
-          {{if .Criterios}}
-          <ul class="criterios">
-            {{range .Criterios}}<li class="{{if .Marcado}}feito{{end}}"><input type="checkbox" disabled{{if .Marcado}} checked{{end}} aria-label="{{if .Marcado}}Feito{{else}}Pendente{{end}}"> {{.Texto}}</li>{{end}}
+  {{if .Itens}}
+  <div class="fila">
+    {{range .Itens}}
+    <!-- Cada linha abre com <details> nativo, sem JavaScript. -->
+    <details id="pr-{{.PR.ID}}"{{if eq .PR.ID $.Aberto}} open{{end}}>
+      <summary>
+        <span class="risco {{.PR.RiskLevel}}">{{risco .PR.RiskLevel}}</span>
+        <span class="fila-texto">
+          <span class="titulo">{{.PR.Title}}</span>
+          <span class="ref meta">{{.PR.Repo}}#{{.PR.Number}}</span>
+        </span>
+        <span class="issue mono secundario">{{with .Issues}}{{(index . 0).Issue.Identifier}}{{if gt (len .) 1}} +{{len . | dec}}{{end}}{{else}}<span class="traco">—</span>{{end}}</span>
+        <span class="diff"><span class="mais">+{{.PR.Additions}}</span><span class="menos">−{{.PR.Deletions}}</span></span>
+        <span class="idade meta">{{haQuanto .PR.CreatedAt}}</span>
+        <span class="seta" aria-hidden="true">›</span>
+      </summary>
+      <div class="fila-detalhe">
+        <div>
+          <div class="rotulo">Motivos de risco</div>
+          <ul class="lista-traco">
+            {{range .PR.RiskReasons}}<li>{{.}}</li>{{else}}<li>Nenhuma regra de risco casou</li>{{end}}
           </ul>
+          <div class="acoes">
+            <a href="{{.PR.URL}}" target="_blank" rel="noopener">Abrir no GitHub ↗</a>
+            <a href="{{linkEscopo .PR.ProductSlug .PR.Scope}}">Ver escopo</a>
+            <span class="meta">{{.PR.Branch}}</span>
+          </div>
+        </div>
+        <div>
+          {{range .Issues}}
+          <div class="issue-bloco">
+            <div class="rotulo">{{.Issue.Identifier}} · critérios de aceite</div>
+            <div class="issue-titulo"><a href="{{.Issue.URL}}" target="_blank" rel="noopener">{{.Issue.Title}}</a> <span class="meta">{{.Issue.StateName}}</span></div>
+            {{if .Criterios}}
+            <ul class="criterios">
+              {{range .Criterios}}<li><span class="caixa" aria-label="{{if .Marcado}}feito{{else}}pendente{{end}}">{{if .Marcado}}✓{{end}}</span><span{{if .Marcado}} class="feito"{{end}}>{{.Texto}}</span></li>{{end}}
+            </ul>
+            {{else}}
+            <p class="criar">A descrição da issue não tem critérios de aceite. Use checkboxes <span class="mono">- [ ]</span> no Linear.</p>
+            {{end}}
+          </div>
           {{else}}
-          <p class="nota">A descrição desta issue não tem critérios de aceite (<code>- [ ]</code>).</p>
+          <div class="rotulo">Critérios de aceite</div>
+          <p class="criar">Nenhuma issue vinculada. Cite o identificador (ex.: <span class="mono">ABC-123</span>) na branch, no título ou no corpo do PR.</p>
           {{end}}
         </div>
-        {{end}}
-      {{else}}
-      <p class="nota aviso-sem-issue">Nenhuma issue vinculada. Cite o identificador (ex.: ABC-123) na branch, no título ou no corpo do PR.</p>
-      {{end}}
-    </div>
-  </li>
+      </div>
+    </details>
+    {{end}}
+  </div>
   {{end}}
-</ol>
-{{end}}
+</div>
 {{end}}

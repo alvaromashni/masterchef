@@ -3,45 +3,51 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{.Titulo}} | Painel</title>
+  <title>{{.Titulo}} | masterchef</title>
   <link rel="stylesheet" href="/static/painel.css">
-  <!-- htmx via CDN: dá interatividade (ex.: botão "marcar como visto") sem build de front. -->
+  <!-- htmx via CDN: troca de página sem recarregar (hx-boost) e o botão
+       "marcar como visto", sem build de front e sem JS próprio. -->
   <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
 </head>
-<body>
+<body hx-boost="true">
   <header class="topo">
-    <a class="marca" href="/">Painel</a>
-    <nav aria-label="Telas">
-      <a href="/"{{if eq .Titulo "Matriz"}} aria-current="page"{{end}}>Matriz</a>
-      <a href="/mudancas"{{if eq .Titulo "O que mudou"}} aria-current="page"{{end}}>O que mudou</a>
-      <a href="/prs"{{if eq .Titulo "Fila de review"}} aria-current="page"{{end}}>Fila de review</a>
-    </nav>
-    <span class="sync{{if .Sync.UltimoErro}} falhou{{end}}" title="Último sync bem-sucedido: {{dataHora .Sync.UltimoOK}}">
-      {{if .Sync.UltimoOK.IsZero}}Nenhum sync concluído ainda{{else if .Sync.UltimoErro}}Último sync bom {{haQuanto .Sync.UltimoOK}}{{else}}Sincronizado {{haQuanto .Sync.UltimoOK}}{{end}}
-    </span>
+    <div class="topo-dentro">
+      <a class="marca" href="/">masterchef</a>
+      <nav class="abas" aria-label="Telas">
+        <a class="aba" href="/"{{if eq .Secao "matriz"}} aria-current="page"{{end}}>Matriz</a>
+        <a class="aba" href="/mudancas"{{if eq .Secao "mudancas"}} aria-current="page"{{end}}>O que mudou{{if .NaoVistos}} <span class="contador novo" title="Mudanças não vistas">{{.NaoVistos}}</span>{{end}}</a>
+        <a class="aba" href="/prs"{{if eq .Secao "prs"}} aria-current="page"{{end}}>Fila de review{{if .NaFila}} <span class="contador" title="PRs aguardando review">{{.NaFila}}</span>{{end}}</a>
+      </nav>
+      <div class="topo-direita">
+        {{if .Falha}}
+        <span class="sync falhou">sync falhou{{if not .Falha.Quando.IsZero}} {{hora .Falha.Quando}}{{end}}</span>
+        {{else if .Sync.UltimoOK.IsZero}}
+        <span class="sync nunca">nenhum sync ainda</span>
+        {{else}}
+        <span class="sync" title="{{dataHora .Sync.UltimoOK}}">sync {{hora .Sync.UltimoOK}} · {{haQuanto .Sync.UltimoOK}}</span>
+        {{end}}
+        <a class="guia" href="/guia"{{if eq .Secao "guia"}} aria-current="page"{{end}}>Guia de UI</a>
+      </div>
+    </div>
+    {{with .Falha}}
+    <div class="alerta" role="alert">
+      <div class="alerta-dentro">
+        <strong>O último sync falhou.</strong>
+        {{if .Erros}}<span class="mono">{{index .Erros 0}}</span>{{end}}
+        <span>{{if $.Sync.UltimoOK.IsZero}}Ainda não há dados de um sync bem-sucedido.{{else}}Os dados exibidos são do último sync bem-sucedido, às {{hora $.Sync.UltimoOK}}.{{end}}</span>
+        {{if gt (len .Erros) 1}}
+        <details>
+          <summary>Ver os {{len .Erros}} erros</summary>
+          <ul>{{range .Erros}}<li>{{.}}</li>{{end}}</ul>
+        </details>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
   </header>
-  {{if .Sync.UltimoErro}}
-  <details class="alerta" role="alert">
-    <summary><strong>O último sync falhou.</strong> Os números podem estar desatualizados. <span class="abrir">Ver o erro</span></summary>
-    <pre>{{.Sync.UltimoErro}}</pre>
-  </details>
-  {{end}}
   <main>
     {{template "conteudo" .Conteudo}}
   </main>
 </body>
 </html>
-{{end}}
-
-{{/* Partes usadas por mais de uma página. */}}
-{{define "eventos"}}
-<ul class="eventos">
-  {{range .}}
-  <li class="evento evento-{{.Kind}}">
-    <time class="quando" datetime="{{rfc3339 .OccurredAt}}" title="{{dataHora .OccurredAt}}">{{haQuanto .OccurredAt}}</time>
-    <span class="resumo">{{.Summary}}</span>
-    <a class="ref" href="{{.URL}}" target="_blank" rel="noopener">{{.Ref}}</a>
-  </li>
-  {{end}}
-</ul>
 {{end}}

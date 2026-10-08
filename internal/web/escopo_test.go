@@ -15,7 +15,8 @@ func TestMontarPaginaEscopo(t *testing.T) {
 
 	d := dadosPainel{
 		Issues: []store.Issue{
-			{ID: "1", Identifier: "X-1", ProductSlug: "x", StateName: "Done", StateType: "completed", ScopeLabel: "api"},
+			{ID: "1", Identifier: "X-1", ProductSlug: "x", StateName: "Done", StateType: "completed", ScopeLabel: "api", UpdatedAt: agora.Add(-48 * time.Hour)},
+			{ID: "7", Identifier: "X-7", ProductSlug: "x", StateName: "Done", StateType: "completed", ScopeLabel: "api", UpdatedAt: agora.Add(-10 * 24 * time.Hour)}, // concluída há mais de 7 dias
 			{ID: "2", Identifier: "X-2", ProductSlug: "x", StateName: "In Progress", StateType: "started", ScopeLabel: "api", UpdatedAt: agora.Add(-time.Hour)},
 			{ID: "3", Identifier: "X-3", ProductSlug: "x", StateName: "In Progress", StateType: "started", ScopeLabel: "api", UpdatedAt: agora},
 			{ID: "4", Identifier: "X-4", ProductSlug: "x", StateName: "Todo", StateType: "unstarted", ScopeLabel: "front"}, // label front...
@@ -31,13 +32,14 @@ func TestMontarPaginaEscopo(t *testing.T) {
 		Vinculos: []store.Vinculo{{IssueID: "4", PRID: 10}}, // ...mas tem PR na api: vai para api
 	}
 	eventos := []store.Evento{
-		{ID: 1, ProductSlug: "x", Scope: "api", Ref: "e-api"},
+		{ID: 1, ProductSlug: "x", Scope: "api", Ref: "e-api", OccurredAt: agora},
 		{ID: 2, ProductSlug: "x", Scope: "front", Ref: "e-front"},
 		{ID: 3, ProductSlug: "x", Scope: "", Ref: "e-sem"},
 		{ID: 4, ProductSlug: "x", Scope: "mobile", Ref: "e-mobile"},
 	}
 
-	api := montarPaginaEscopo(p, "api", d, eventos, product.Documento{})
+	visita := agora.Add(-time.Minute)
+	api := montarPaginaEscopo(p, "api", d, eventos, product.Documento{}, visita, 72*time.Hour, agora)
 
 	var estados []string
 	for _, g := range api.IssuesPorEstado {
@@ -60,7 +62,17 @@ func TestMontarPaginaEscopo(t *testing.T) {
 		t.Errorf("eventos da api = %+v", api.Eventos)
 	}
 
-	sem := montarPaginaEscopo(p, aClassificar, d, eventos, product.Documento{})
+	if g := api.IssuesPorEstado[2]; !g.Concluido || len(g.Issues) != 1 || g.Issues[0].Identifier != "X-1" {
+		t.Errorf("Done deveria ter só X-1 (X-7 foi concluída há mais de 7 dias): %+v", g)
+	}
+	if api.Celula.EmAndamento != 2 || api.Celula.AguardandoReview != 2 || api.Celula.AltoPendentes != 1 {
+		t.Errorf("números do topo deveriam bater com a matriz: %+v", api.Celula)
+	}
+	if !api.Eventos[0].NaoVisto {
+		t.Errorf("evento depois da última visita deveria estar como não visto")
+	}
+
+	sem := montarPaginaEscopo(p, aClassificar, d, eventos, product.Documento{}, visita, 72*time.Hour, agora)
 	if len(sem.IssuesPorEstado) != 1 || sem.IssuesPorEstado[0].Issues[0].Identifier != "X-5" {
 		t.Errorf("a classificar deveria ter só X-5 (escopo mobile desconhecido): %+v", sem.IssuesPorEstado)
 	}

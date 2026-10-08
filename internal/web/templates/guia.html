@@ -1,0 +1,83 @@
+{{define "conteudo"}}
+<div class="guia">
+  <div style="max-width:720px">
+    <h1>Guia de UI</h1>
+    <p class="subtitulo">Regras para o <span class="mono">internal/web/static/painel.css</span> e os templates. Tudo aqui é CSS puro, sem build, e funciona com html/template e htmx. Telas novas seguem este guia.</p>
+  </div>
+
+  <section class="guia-secao">
+    <h2>Princípios</h2>
+    <div class="guia-grade">
+      <div><span class="meta">01</span><strong>Cor só quando significa algo</strong><p>A interface é monocromática. Vermelho = risco alto, âmbar = médio, violeta = não visto, hachura = parada. Nada mais tem cor.</p></div>
+      <div><span class="meta">02</span><strong>Mono para fatos</strong><p>Identificadores, repos, horários, diffs e caminhos usam IBM Plex Mono. Texto humano usa Schibsted Grotesk.</p></div>
+      <div><span class="meta">03</span><strong>Linhas finas, sem cartões</strong><p>Estrutura com divisórias de 1px e grids. Sem sombras, gradientes ou ícones decorativos.</p></div>
+      <div><span class="meta">04</span><strong>Sempre o motivo</strong><p>Todo sinal (risco, parada) vem com o texto da regra que o gerou. Estados vazios dizem qual arquivo criar.</p></div>
+    </div>
+  </section>
+
+  <section class="guia-secao">
+    <h2>Cor</h2>
+    <div class="amostras">
+      <div><div class="amostra" style="background:var(--bg)"></div><strong>--bg</strong><span class="meta">#f7f7f5</span></div>
+      <div><div class="amostra" style="background:var(--surface)"></div><strong>--surface</strong><span class="meta">#ffffff</span></div>
+      <div><div class="amostra" style="background:var(--line)"></div><strong>--line</strong><span class="meta">#e6e6e3</span></div>
+      <div><div class="amostra" style="background:var(--ink)"></div><strong>--ink</strong><span class="meta">#17171a</span></div>
+      <div><div class="amostra" style="background:var(--ink-2)"></div><strong>--ink-2</strong><span class="meta">#55555c · texto secundário</span></div>
+      <div><div class="amostra" style="background:var(--ink-3)"></div><strong>--ink-3</strong><span class="meta">#6f6f76 · metadados</span></div>
+      <div><div class="amostra" style="background:var(--risk-high)"></div><strong>--risk-high</strong><span class="meta">oklch(.55 .2 27)</span></div>
+      <div><div class="amostra" style="background:var(--risk-mid)"></div><strong>--risk-mid</strong><span class="meta">oklch(.76 .15 75)</span></div>
+      <div><div class="amostra" style="background:var(--risk-low)"></div><strong>--risk-low</strong><span class="meta">oklch(.78 .02 250)</span></div>
+      <div><div class="amostra" style="background:var(--unseen)"></div><strong>--unseen</strong><span class="meta">oklch(.5 .18 290)</span></div>
+    </div>
+  </section>
+
+  <section class="guia-secao">
+    <h2>Tipografia</h2>
+    <div class="tipos">
+      <div><span class="meta">título · 26/600</span><h1>Fila de review</h1></div>
+      <div><span class="meta">número · 30/500</span><span style="font-size:30px;font-weight:500;letter-spacing:-0.03em;font-variant-numeric:tabular-nums">14</span></div>
+      <div><span class="meta">seção · 15/600</span><h2>PRs abertos</h2></div>
+      <div><span class="meta">corpo · 14/400</span><span>Endpoint de exportação respeita os filtros da listagem.</span></div>
+      <div><span class="meta">fato · mono 12</span><span class="mono">ATL-142 · alvaromashni/atlas-api#88 · há 4h</span></div>
+      <div><span class="meta">rótulo · mono 11 caps</span><span class="rotulo">critérios de aceite</span></div>
+    </div>
+  </section>
+
+  <section class="guia-secao">
+    <h2>Componentes</h2>
+    <div class="componentes">
+      <div>
+        <span class="meta">.risco</span>
+        <div class="linha"><span class="risco alto">alto</span><span class="risco medio">médio</span><span class="risco baixo">baixo</span></div>
+        <p>Quadrado de cor e texto. Nunca só a cor.</p>
+      </div>
+      <div>
+        <span class="meta">.badge-novo · .badge-parada</span>
+        <div class="linha"><span class="badge-novo">+3</span><span class="badge-parada">parada · 5d</span></div>
+        <p>Contagem de eventos não vistos e idade da última atividade.</p>
+      </div>
+      <div>
+        <span class="meta">.btn · link</span>
+        <div class="linha"><span class="btn" style="display:flex;align-items:center">Marcar como visto</span><a href="/guia">Decisões</a></div>
+        <p>Um único botão sólido no app inteiro. O resto são links.</p>
+      </div>
+      <div>
+        <span class="meta">.criar</span>
+        <div class="criar">PRODUCT.md ainda não tem a seção <span class="mono">"## infra"</span>.</div>
+        <p>Borda tracejada = algo que você pode criar.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="guia-secao">
+    <h2>Movimento</h2>
+    <ul class="lista-traco" style="max-width:640px;color:var(--ink-body)">
+      <li>Transições de 150ms em cor e fundo no hover. Nada além disso. Desligadas com prefers-reduced-motion.</li>
+      <li>Navegação com <span class="mono">hx-boost="true"</span> no &lt;body&gt;: troca de página sem recarregar, sem JS próprio.</li>
+      <li>A matriz se atualiza sozinha com <span class="mono">hx-get="/" hx-trigger="every 60s" hx-select="#matriz"</span>.</li>
+      <li>Linhas da fila de review abrem com &lt;details&gt; e &lt;summary&gt; nativos.</li>
+      <li>"Marcar como visto": <span class="mono">hx-post="/mudancas/visto" hx-target="#mudancas" hx-swap="outerHTML"</span>.</li>
+    </ul>
+  </section>
+</div>
+{{end}}
