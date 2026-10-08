@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{.Titulo}} | painel</title>
+  <title>{{.Titulo}} | masterchef</title>
   <link rel="stylesheet" href="/static/painel.css">
   <!-- htmx via CDN: troca de página sem recarregar (hx-boost) e o botão
        "marcar como visto", sem build de front e sem JS próprio. -->
@@ -12,7 +12,7 @@
 <body hx-boost="true">
   <header class="topo">
     <div class="topo-dentro">
-      <a class="marca" href="/">painel</a>
+      <a class="marca" href="/">masterchef</a>
       <nav class="abas" aria-label="Telas">
         <a class="aba" href="/"{{if eq .Secao "matriz"}} aria-current="page"{{end}}>Matriz</a>
         <a class="aba" href="/mudancas"{{if eq .Secao "mudancas"}} aria-current="page"{{end}}>O que mudou{{if .NaoVistos}} <span class="contador novo" title="Mudanças não vistas">{{.NaoVistos}}</span>{{end}}</a>
