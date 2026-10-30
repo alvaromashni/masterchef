@@ -325,6 +325,50 @@ h2 { margin: 0; font-size: 15px; font-weight: 600; }
 .markdown th, .markdown td { border-bottom: 1px solid var(--line); padding: 6px 12px 6px 0; text-align: left; }
 .markdown blockquote { margin: 8px 0; padding-left: 14px; border-left: 2px solid var(--line); color: var(--ink-2); }
 
+/* ---------- Projetos ---------- */
+
+.projetos { border-top: 1px solid var(--ink); }
+.projeto-linha {
+  display: grid; grid-template-columns: minmax(180px, 1fr) minmax(160px, 260px) 340px; gap: 12px 40px; align-items: center;
+  padding: 18px 4px; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none;
+}
+.projeto-linha:hover { background: var(--hover); }
+.projeto-nome { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.projeto-nome .nome { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.progresso { display: flex; align-items: center; gap: 12px; }
+.barra { flex: 1; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.barra span { display: block; height: 100%; background: var(--ink); }
+.numeros-projeto { display: flex; justify-content: flex-end; gap: 20px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+.numeros-projeto b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.matriz-produto a.nome { align-self: auto; font-size: 16px; color: var(--ink); }
+
+.etiqueta { font-family: var(--mono); font-size: 11px; color: var(--ink-3); padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; white-space: nowrap; }
+.mais-feitas summary { cursor: pointer; padding: 10px 0 4px; font-size: 13px; color: var(--ink-2); }
+.mais-feitas summary:hover { color: var(--ink); }
+
+.indice-docs { display: flex; flex-direction: column; gap: 22px; }
+.repo-docs { display: flex; flex-direction: column; }
+.repo-docs .rotulo { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.repo-docs .repo { text-transform: none; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pasta-docs { margin-top: 8px; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+.doc-link { display: block; padding: 3px 0; font-size: 14px; text-decoration: none; overflow-wrap: anywhere; }
+.doc-link.dentro { padding-left: 14px; }
+.doc-link:hover { text-decoration: underline; }
+.doc-link[aria-current="page"] { font-weight: 600; }
+.indice .indice-docs { gap: 18px; }
+.indice .doc-link { font-size: 13px; color: var(--ink-2); }
+.indice .doc-link[aria-current="page"] { color: var(--ink); }
+
+.doc-cabeca { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.doc-corpo { font-size: 15px; line-height: 1.65; }
+.doc-corpo h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 16px; }
+.doc-corpo h2 { font-size: 19px; margin: 32px 0 10px; }
+.doc-corpo h3 { font-size: 16px; margin: 24px 0 8px; }
+.doc-corpo p { margin: 0 0 12px; }
+.doc-corpo ul, .doc-corpo ol { margin: 0 0 12px; }
+.doc-corpo table { display: block; overflow-x: auto; }
+.doc-corpo img { max-width: 100%; }
+
 /* ---------- Decisões ---------- */
 
 .abas-produto { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
@@ -339,6 +383,7 @@ h2 { margin: 0; font-size: 15px; font-weight: 600; }
 .indice a:hover { color: var(--ink); }
 .indice .meta { flex: none; font-size: 11px; margin-top: 2px; }
 .decisoes article { display: flex; flex-direction: column; gap: 48px; }
+.decisoes article.doc { gap: 20px; }
 .decisao { display: flex; flex-direction: column; gap: 10px; scroll-margin-top: 88px; }
 .decisao h2 { font-size: 20px; letter-spacing: -0.015em; text-wrap: pretty; }
 .decisao .markdown, .intro.markdown { font-size: 15px; line-height: 1.65; }
@@ -377,6 +422,8 @@ h2 { margin: 0; font-size: 15px; font-weight: 600; }
   .evento-linha .ref { grid-column: 1; }
   .evento-linha .resumo { grid-column: 2; }
   .grupo-escopo { grid-template-columns: 1fr; }
+  .projeto-linha { grid-template-columns: 1fr; }
+  .numeros-projeto { flex-wrap: wrap; gap: 6px 16px; }
   .fila summary { grid-template-columns: 64px minmax(0, 1fr) 16px; }
   .fila summary .issue, .fila summary .diff, .fila summary .idade { display: none; }
   .fila-detalhe { padding: 4px 4px 24px; }

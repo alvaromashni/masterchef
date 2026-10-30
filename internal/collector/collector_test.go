@@ -441,3 +441,45 @@ func TestCiclo_Eventos(t *testing.T) {
 		t.Errorf("eventos:\n%s\nesperava:\n%s", strings.Join(got, "\n"), strings.Join(quer, "\n"))
 	}
 }
+
+func TestCiclo_ProdutoRenomeadoBuscaTudoDeNovoSemEventos(t *testing.T) {
+	c, fonte, _, st, relogio := montar(t)
+	ctx := context.Background()
+	if err := c.Ciclo(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	// O dono junta tudo num projeto novo, com outro slug (ex.: nawat-api -> nawat).
+	c.produtos[0].Slug = "projeto-novo"
+	*relogio = relogio.Add(5 * time.Minute)
+	fonte.desdeVisto = nil
+	if err := c.Ciclo(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	// proj-x (produto novo) sem "desde"; proj-y continua pedindo só mudanças.
+	if len(fonte.desdeVisto) != 2 || fonte.desdeVisto[0] != nil || fonte.desdeVisto[1] == nil {
+		t.Fatalf("desde vistos = %v, esperava [nil, data]", fonte.desdeVisto)
+	}
+
+	issues, _ := st.ListarIssues(ctx)
+	for _, i := range issues {
+		if i.ProductSlug == "produto-x" {
+			t.Errorf("issue %s ficou no slug antigo", i.Identifier)
+		}
+	}
+	prs, _ := st.ListarPRs(ctx)
+	for _, pr := range prs {
+		if pr.Repo == "o/x-api" && pr.ProductSlug != "projeto-novo" {
+			t.Errorf("PR #%d ficou em %q, esperava projeto-novo", pr.Number, pr.ProductSlug)
+		}
+	}
+
+	eventos, err := st.EventosDesde(ctx, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(eventos) != 0 {
+		t.Errorf("mudar o config gerou %d eventos, esperava 0: %+v", len(eventos), eventos)
+	}
+}

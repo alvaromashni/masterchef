@@ -1,0 +1,18 @@
+{{define "conteudo"}}
+<nav class="trilha" aria-label="Você está em">
+  <a href="/projetos">projetos</a><span>/</span><a href="/p/{{.Produto.Slug}}">{{.Produto.Slug}}</a><span>/</span><span>{{.Escopo}}</span><span>/</span><span class="atual">{{.Pagina.Caminho}}</span>
+</nav>
+<div class="decisoes">
+  <nav class="indice" aria-label="Documentos do projeto">
+    <div class="rotulo">Documentos</div>
+    {{template "indice-docs" .Contexto}}
+  </nav>
+  <article class="doc">
+    <div class="doc-cabeca">
+      <span class="meta">{{.Repo}} · {{.Pagina.Caminho}}</span>
+      <a class="meta" href="https://github.com/{{.Repo}}/blob/HEAD/{{.Pagina.Caminho}}" target="_blank" rel="noopener">abrir no GitHub</a>
+    </div>
+    <div class="markdown doc-corpo">{{.Pagina.HTML}}</div>
+  </article>
+</div>
+{{end}}

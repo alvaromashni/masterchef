@@ -24,7 +24,7 @@
     {{range .Linhas}}
     <div class="matriz-produto">
       <div>
-        <div class="nome">{{.Produto.Nome}}</div>
+        <a class="nome" href="/p/{{.Produto.Slug}}">{{.Produto.Nome}}</a>
         <div class="meta">{{.Produto.Slug}} · {{len .Produto.Escopos}} {{plural (len .Produto.Escopos) "repo" "repos"}}</div>
       </div>
       <a href="/p/{{.Produto.Slug}}/decisoes">Decisões</a>

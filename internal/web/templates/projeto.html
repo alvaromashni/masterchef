@@ -1,0 +1,79 @@
+{{define "conteudo"}}
+<nav class="trilha" aria-label="Você está em">
+  <a href="/projetos">projetos</a><span>/</span><span class="atual">{{.Produto.Slug}}</span>
+</nav>
+<div class="cabecalho cabecalho-grande">
+  <div>
+    <h1>{{.Produto.Nome}}</h1>
+    <p class="mono">{{range $i, $e := .Produto.Escopos}}{{if $i}} · {{end}}{{$e.Repo}}{{end}}</p>
+  </div>
+  <div class="numeros-escopo">
+    <div><span class="valor">{{.Roadmap.Percentual}}%</span><span class="nome">feito ({{len .Roadmap.Feito}} de {{.Roadmap.Total}})</span></div>
+    <div><span class="valor">{{len .Roadmap.EmAndamento}}</span><span class="nome">em andamento</span></div>
+    <div><span class="valor">{{len .Roadmap.AFazer}}</span><span class="nome">a fazer</span></div>
+  </div>
+  {{if gt (len .Produtos) 1}}
+  <nav class="abas-produto" aria-label="Projetos">
+    {{range .Produtos}}<a href="/p/{{.Slug}}"{{if eq .Slug $.Produto.Slug}} aria-current="page"{{end}}>{{.Nome}}</a>{{end}}
+  </nav>
+  {{end}}
+</div>
+
+<div class="colunas">
+  <div class="coluna">
+    <section>
+      <div class="secao-titulo">
+        <h2>Roadmap</h2>
+        <span class="meta">issues do Linear</span>
+      </div>
+      {{if not .Roadmap.Total}}
+      <p class="vazio">Nenhuma issue deste projeto no Linear ainda (ou o primeiro sync não terminou).</p>
+      {{else}}
+      <div class="estado-grupo">
+        <div class="rotulo"><span>Em andamento</span><span>{{len .Roadmap.EmAndamento}}</span></div>
+        {{range .Roadmap.EmAndamento}}{{template "item-roadmap" .}}{{else}}<p class="vazio">Nada em andamento.</p>{{end}}
+      </div>
+      <div class="estado-grupo">
+        <div class="rotulo"><span>A fazer</span><span>{{len .Roadmap.AFazer}}</span></div>
+        {{range .Roadmap.AFazer}}{{template "item-roadmap" .}}{{else}}<p class="vazio">Nada na fila.</p>{{end}}
+      </div>
+      <div class="estado-grupo">
+        <div class="rotulo"><span>Feito</span><span>{{len .Roadmap.Feito}}</span></div>
+        {{range .Roadmap.FeitoVisivel}}{{template "item-roadmap" .}}{{else}}<p class="vazio">Nada concluído ainda.</p>{{end}}
+        {{with .Roadmap.FeitoResto}}
+        <details class="mais-feitas">
+          <summary>Ver mais {{len .}} {{plural (len .) "concluída" "concluídas"}}</summary>
+          {{range .}}{{template "item-roadmap" .}}{{end}}
+        </details>
+        {{end}}
+      </div>
+      {{end}}
+    </section>
+  </div>
+
+  <div class="coluna">
+    <section>
+      <div class="secao-titulo">
+        <h2>Contexto</h2>
+        <span class="meta">pasta docs/ de cada repo</span>
+      </div>
+      {{template "indice-docs" .Contexto}}
+    </section>
+    <section>
+      <h2>Mais</h2>
+      <ul class="lista-traco">
+        <li><a href="/p/{{.Produto.Slug}}/decisoes">Decisões</a></li>
+        {{range .Produto.Escopos}}<li><a href="{{linkEscopo $.Produto.Slug .Nome}}">Escopo {{.Nome}}</a> <span class="meta">issues, PRs e eventos</span></li>{{end}}
+      </ul>
+    </section>
+  </div>
+</div>
+{{end}}
+
+{{define "item-roadmap"}}
+<a class="issue-linha" href="{{.URL}}" target="_blank" rel="noopener">
+  <span class="id">{{.Identifier}}</span>
+  <span class="t">{{.Title}}{{range .Escopos}} <span class="etiqueta">{{.}}</span>{{end}}</span>
+  <span class="meta" title="{{.StateName}} · {{dataHora .UpdatedAt}}">{{haQuanto .UpdatedAt}}</span>
+</a>
+{{end}}

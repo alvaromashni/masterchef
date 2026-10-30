@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/alvaromashni/masterchef/internal/config"
+	"github.com/alvaromashni/masterchef/internal/contexto"
 	"github.com/alvaromashni/masterchef/internal/product"
 	"github.com/alvaromashni/masterchef/internal/store"
 )
@@ -34,6 +35,8 @@ type Server struct {
 	// markdown lê PRODUCT.md e DECISIONS.md do repo central a cada pedido,
 	// então editar o arquivo e recarregar a página já mostra a mudança.
 	markdown *product.Leitor
+	// docs lê a pasta docs/ dos repos pelo GitHub, com cache em memória.
+	docs *contexto.Leitor
 	// Um template por página. Cada página é o layout + o arquivo da página,
 	// parseados juntos, porque todas definem um bloco "conteudo" e um único
 	// conjunto de templates não aceitaria vários blocos com o mesmo nome.
@@ -41,12 +44,13 @@ type Server struct {
 }
 
 // New prepara os templates e devolve o servidor pronto para Handler().
-func New(cfg *config.Config, st *store.Store, logger *slog.Logger) (*Server, error) {
+func New(cfg *config.Config, st *store.Store, docs *contexto.Leitor, logger *slog.Logger) (*Server, error) {
 	s := &Server{
 		cfg:      cfg,
 		store:    st,
 		logger:   logger,
 		markdown: product.NewLeitor(cfg.CentralRepoPath),
+		docs:     docs,
 		paginas:  map[string]*template.Template{},
 	}
 
@@ -88,8 +92,8 @@ func New(cfg *config.Config, st *store.Store, logger *slog.Logger) (*Server, err
 		"linkEscopo": linkEscopo,
 	}
 
-	for _, pagina := range []string{"index.html", "prs.html", "mudancas.html", "escopo.html", "decisoes.html", "guia.html"} {
-		tmpl, err := template.New(pagina).Funcs(funcoes).ParseFS(templatesFS, "templates/layout.html", "templates/"+pagina)
+	for _, pagina := range []string{"index.html", "prs.html", "mudancas.html", "escopo.html", "decisoes.html", "guia.html", "projetos.html", "projeto.html", "doc.html"} {
+		tmpl, err := template.New(pagina).Funcs(funcoes).ParseFS(templatesFS, "templates/layout.html", "templates/partes.html", "templates/"+pagina)
 		if err != nil {
 			return nil, fmt.Errorf("carregando template %s: %w", pagina, err)
 		}
@@ -109,6 +113,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /mudancas", s.handleMudancas)
 	mux.HandleFunc("POST /mudancas/visto", s.handleMarcarVisto)
 	// O padrão mais específico ("decisoes" fixo) vence o genérico ({escopo}).
+	mux.HandleFunc("GET /projetos", s.handleProjetos)
+	mux.HandleFunc("GET /p/{produto}", s.handleProjeto)
+	mux.HandleFunc("GET /p/{produto}/docs/{escopo}/{caminho...}", s.handleDoc)
 	mux.HandleFunc("GET /p/{produto}/decisoes", s.handleDecisoes)
 	mux.HandleFunc("GET /p/{produto}/{escopo}", s.handleEscopo)
 	mux.HandleFunc("GET /guia", s.handleGuia)
@@ -123,7 +130,7 @@ func (s *Server) Handler() http.Handler {
 // que aparece em todas as páginas (seção 11 do CONTEXT.md).
 type dadosPagina struct {
 	Titulo    string
-	Secao     string // aba marcada no topo: matriz, mudancas, prs ou guia
+	Secao     string // aba marcada no topo: projetos, matriz, mudancas, prs ou guia
 	Sync      store.EstadoSync
 	Falha     *FalhaSync // nil = último sync deu certo
 	NaoVistos int        // contador da aba "O que mudou"
@@ -136,6 +143,7 @@ type dadosPagina struct {
 var secaoDaPagina = map[string]string{
 	"index.html": "matriz", "escopo.html": "matriz", "decisoes.html": "matriz",
 	"mudancas.html": "mudancas", "prs.html": "prs", "guia.html": "guia",
+	"projetos.html": "projetos", "projeto.html": "projetos", "doc.html": "projetos",
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -308,6 +316,80 @@ func (s *Server) handleDecisoes(w http.ResponseWriter, r *http.Request) {
 		"Produto":  p,
 		"Produtos": s.cfg.Produtos,
 		"Doc":      s.markdown.Decisoes(p.Slug),
+	})
+}
+
+// handleProjetos lista os projetos com o progresso de cada roadmap.
+func (s *Server) handleProjetos(w http.ResponseWriter, r *http.Request) {
+	d, err := s.carregarDados(r)
+	if err != nil {
+		s.erroInterno(w, err)
+		return
+	}
+	var resumos []ResumoProjeto
+	for _, p := range s.cfg.Produtos {
+		resumos = append(resumos, ResumoProjeto{Produto: p, Roadmap: montarRoadmap(p, d)})
+	}
+	s.render(w, r, "projetos.html", "Projetos", resumos)
+}
+
+// handleProjeto mostra o roadmap (issues do Linear) e o contexto (docs/
+// dos repos) de um projeto.
+func (s *Server) handleProjeto(w http.ResponseWriter, r *http.Request) {
+	p, ok := s.produto(r.PathValue("produto"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	d, err := s.carregarDados(r)
+	if err != nil {
+		s.erroInterno(w, err)
+		return
+	}
+	s.render(w, r, "projeto.html", p.Nome, PaginaProjeto{
+		Produto:  p,
+		Produtos: s.cfg.Produtos,
+		Roadmap:  montarRoadmap(p, d),
+		Contexto: montarContexto(r.Context(), s.docs, p, ""),
+	})
+}
+
+// handleDoc mostra um documento da pasta docs/ de um repo do projeto.
+func (s *Server) handleDoc(w http.ResponseWriter, r *http.Request) {
+	p, ok := s.produto(r.PathValue("produto"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	nomeEscopo, repo := r.PathValue("escopo"), ""
+	for _, e := range p.Escopos {
+		if e.Nome == nomeEscopo {
+			repo = e.Repo
+		}
+	}
+	if repo == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	caminho := "docs/" + r.PathValue("caminho")
+	pagina, achou, err := s.docs.Pagina(r.Context(), repo, caminho, func(repo, alvo string) string {
+		return linkDoc(p.Slug, nomeEscopo, alvo)
+	})
+	if err != nil {
+		s.erroInterno(w, err)
+		return
+	}
+	if !achou {
+		http.NotFound(w, r)
+		return
+	}
+	s.render(w, r, "doc.html", pagina.Titulo+" / "+p.Nome, PaginaDoc{
+		Produto:  p,
+		Escopo:   nomeEscopo,
+		Repo:     repo,
+		Pagina:   pagina,
+		Contexto: montarContexto(r.Context(), s.docs, p, nomeEscopo+"/"+caminho),
 	})
 }
 

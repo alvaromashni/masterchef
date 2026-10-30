@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/alvaromashni/masterchef/internal/config"
+	"github.com/alvaromashni/masterchef/internal/contexto"
 	"github.com/alvaromashni/masterchef/internal/store"
 )
 
@@ -33,11 +34,11 @@ func novoServidorComStore(t *testing.T) (http.Handler, *store.Store) {
 	cfg := &config.Config{
 		CentralRepoPath: filepath.Join("..", "product", "testdata", "central"),
 		Produtos: []config.Produto{
-			{Nome: "Produto X", Slug: "produto-x", Escopos: config.Escopos{{Nome: "api"}, {Nome: "front"}}},
+			{Nome: "Produto X", Slug: "produto-x", Escopos: config.Escopos{{Nome: "api", Repo: "o/x-api"}, {Nome: "front", Repo: "o/x-front"}}},
 			{Nome: "Produto Y", Slug: "produto-y", Escopos: config.Escopos{{Nome: "api"}}},
 		},
 	}
-	s, err := New(cfg, st, logger)
+	s, err := New(cfg, st, contexto.NewLeitor(docsFalsos{}), logger)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

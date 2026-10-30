@@ -1,0 +1,16 @@
+{{/* Pedaços usados por mais de uma página. */}}
+{{define "indice-docs"}}
+<div class="indice-docs">
+  {{range .}}
+  <div class="repo-docs">
+    <div class="rotulo"><span>{{.Escopo}}</span><span class="repo">{{.Repo}}</span></div>
+    {{if .Aviso}}<p class="vazio">{{.Aviso}}</p>{{end}}
+    {{$pasta := "-"}}
+    {{range .Docs}}
+      {{if ne .Pasta $pasta}}{{$pasta = .Pasta}}{{if .Pasta}}<div class="pasta-docs">{{.Pasta}}/</div>{{end}}{{end}}
+      <a class="doc-link{{if .Pasta}} dentro{{end}}" href="{{.Link}}"{{if .Atual}} aria-current="page"{{end}}>{{.Nome}}</a>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}
