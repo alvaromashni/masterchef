@@ -162,3 +162,46 @@ func TestFiltroProjeto_UUIDOuPedacoDaURL(t *testing.T) {
 		}
 	}
 }
+
+func TestConsultar_TentaDeNovoQuandoDemoraOuDa5xx(t *testing.T) {
+	pagina, err := os.ReadFile(filepath.Join("testdata", "issues_pagina2.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	chamadas := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		chamadas++
+		switch chamadas {
+		case 1:
+			time.Sleep(300 * time.Millisecond) // passa do tempo limite do cliente
+		case 2:
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		w.Write(pagina)
+	}))
+	t.Cleanup(srv.Close)
+
+	c := New("k", srv.URL)
+	c.http.Timeout = 100 * time.Millisecond
+	if _, err := c.ListIssues(context.Background(), "proj", nil); err != nil {
+		t.Fatalf("esperava sucesso na 3ª tentativa: %v", err)
+	}
+	if chamadas != 3 {
+		t.Fatalf("chamadas = %d, esperava 3", chamadas)
+	}
+}
+
+func TestConsultar_DesisteDepoisDasTentativas(t *testing.T) {
+	chamadas := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		chamadas++
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(srv.Close)
+
+	_, err := New("k", srv.URL).ListIssues(context.Background(), "proj", nil)
+	if err == nil || !strings.Contains(err.Error(), "HTTP 503") || chamadas != tentativas {
+		t.Fatalf("err=%v chamadas=%d", err, chamadas)
+	}
+}

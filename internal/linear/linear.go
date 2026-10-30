@@ -9,8 +9,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
@@ -21,7 +23,13 @@ import (
 const DefaultEndpoint = "https://api.linear.app/graphql"
 
 // tamanhoPagina é quantas issues pedimos por requisição (o máximo do Linear é 250).
-const tamanhoPagina = 100
+// Páginas menores respondem mais rápido: com descrição e anexos, 100 issues
+// por página chegaram a passar do tempo limite no primeiro sync.
+const tamanhoPagina = 50
+
+// tentativas é quantas vezes uma consulta é feita quando o Linear demora
+// demais para responder (tempo esgotado) ou responde 5xx.
+const tentativas = 3
 
 // Issue é uma issue do Linear com os campos que o painel usa.
 type Issue struct {
@@ -54,7 +62,7 @@ func New(apiKey, endpoint string) *Client {
 	return &Client{
 		apiKey:   apiKey,
 		endpoint: endpoint,
-		http:     &http.Client{Timeout: 30 * time.Second},
+		http:     &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
@@ -156,18 +164,23 @@ func (c *Client) consultar(ctx context.Context, query string, variaveis map[stri
 	// Chave pessoal do Linear vai pura, sem "Bearer " (seção 7 do CONTEXT.md).
 	req.Header.Set("Authorization", c.apiKey)
 
-	res, err := c.http.Do(req)
-	if err != nil {
-		return fmt.Errorf("chamando o Linear: %w", err)
-	}
-	defer res.Body.Close()
-
-	dados, err := io.ReadAll(res.Body)
-	if err != nil {
-		return fmt.Errorf("lendo resposta do Linear: %w", err)
-	}
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("Linear respondeu HTTP %d: %s", res.StatusCode, resumir(dados))
+	var dados []byte
+	for tentativa := 1; ; tentativa++ {
+		// O corpo é lido a cada envio, então precisa ser recriado para tentar de novo.
+		req.Body = io.NopCloser(bytes.NewReader(corpo))
+		var status int
+		dados, status, err = c.enviar(req)
+		if err == nil && status == http.StatusOK {
+			break
+		}
+		temporario := status >= 500 || errors.Is(err, context.DeadlineExceeded) || ehTempoEsgotado(err)
+		if tentativa < tentativas && temporario && ctx.Err() == nil {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("chamando o Linear (%d %s): %w", tentativa, plural(tentativa), err)
+		}
+		return fmt.Errorf("Linear respondeu HTTP %d: %s", status, resumir(dados))
 	}
 
 	// GraphQL costuma responder 200 mesmo com erro; o erro vem no campo "errors".
@@ -187,6 +200,34 @@ func (c *Client) consultar(ctx context.Context, query string, variaveis map[stri
 		return fmt.Errorf("decodificando dados do Linear: %w", err)
 	}
 	return nil
+}
+
+// enviar faz a requisição e lê a resposta inteira.
+func (c *Client) enviar(req *http.Request) ([]byte, int, error) {
+	res, err := c.http.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer res.Body.Close()
+	dados, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, 0, fmt.Errorf("lendo resposta: %w", err)
+	}
+	return dados, res.StatusCode, nil
+}
+
+// ehTempoEsgotado diz se o erro é de tempo limite da rede (ex.: o
+// "Client.Timeout exceeded while awaiting headers" do http.Client).
+func ehTempoEsgotado(err error) bool {
+	var e net.Error
+	return errors.As(err, &e) && e.Timeout()
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return "tentativa"
+	}
+	return "tentativas"
 }
 
 // resumir corta respostas longas para não poluir o log e a tela.
