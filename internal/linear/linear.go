@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -110,15 +112,33 @@ func (c *Client) ListIssues(ctx context.Context, projectID string, updatedSince 
 
 // filtroIssues monta o IssueFilter do GraphQL do Linear.
 func filtroIssues(projectID string, updatedSince *time.Time) map[string]any {
-	filtro := map[string]any{
-		"project": map[string]any{"id": map[string]any{"eq": projectID}},
-	}
+	filtro := map[string]any{"project": filtroProjeto(projectID)}
 	if updatedSince == nil {
 		filtro["state"] = map[string]any{"type": map[string]any{"neq": "canceled"}}
 	} else {
 		filtro["updatedAt"] = map[string]any{"gt": updatedSince.UTC().Format(time.RFC3339)}
 	}
 	return filtro
+}
+
+// uuid casa o id interno de um projeto no Linear (ex.: 3f2a...-...).
+var uuid = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// filtroProjeto aceita o projeto em dois formatos:
+//   - o UUID interno do projeto;
+//   - o pedaço da URL do projeto, ex.: "nawat-api-04081631749b" (de
+//     linear.app/<time>/project/nawat-api-04081631749b), que é mais fácil
+//     de copiar. O final depois do último "-" é o slugId do projeto.
+//
+// Mandar o pedaço da URL no filtro de id faz o Linear responder
+// "Argument Validation Error", porque ele espera um UUID ali.
+func filtroProjeto(projectID string) map[string]any {
+	projectID = strings.TrimSpace(projectID)
+	if uuid.MatchString(projectID) {
+		return map[string]any{"id": map[string]any{"eq": projectID}}
+	}
+	slugID := projectID[strings.LastIndex(projectID, "-")+1:]
+	return map[string]any{"slugId": map[string]any{"eq": slugID}}
 }
 
 // consultar faz um POST GraphQL e decodifica "data" em destino.
