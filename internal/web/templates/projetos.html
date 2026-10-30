@@ -1,0 +1,27 @@
+{{define "conteudo"}}
+<div class="cabecalho">
+  <div>
+    <h1>Projetos</h1>
+    <p class="subtitulo">Roadmap de cada projeto a partir das issues do Linear, e o contexto da pasta docs/ dos repos.</p>
+  </div>
+</div>
+<div class="projetos">
+  {{range .}}
+  <a class="projeto-linha" href="/p/{{.Produto.Slug}}">
+    <span class="projeto-nome">
+      <span class="nome">{{.Produto.Nome}}</span>
+      <span class="meta">{{range $i, $e := .Produto.Escopos}}{{if $i}} · {{end}}{{$e.Nome}}{{end}}</span>
+    </span>
+    <span class="progresso" title="{{len .Roadmap.Feito}} de {{.Roadmap.Total}} issues concluídas">
+      <span class="barra"><span style="width: {{.Roadmap.Percentual}}%"></span></span>
+      <span class="meta">{{.Roadmap.Percentual}}% feito</span>
+    </span>
+    <span class="numeros-projeto">
+      <span><b>{{len .Roadmap.EmAndamento}}</b> em andamento</span>
+      <span><b>{{len .Roadmap.AFazer}}</b> a fazer</span>
+      <span><b>{{len .Roadmap.Feito}}</b> {{plural (len .Roadmap.Feito) "feita" "feitas"}}</span>
+    </span>
+  </a>
+  {{end}}
+</div>
+{{end}}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/alvaromashni/masterchef/internal/config"
@@ -134,15 +135,22 @@ func (c *Collector) Ciclo(ctx context.Context) error {
 		resultado.Erros = append(resultado.Erros, fmt.Sprintf("%s: %v", onde, err))
 	}
 
-	issuesNovas := c.coletarIssues(ctx, desde, &resultado, anotarErro)
-	prsNovos := c.coletarPRs(ctx, desde, antes.PRs, &resultado, anotarErro)
+	// Produto ou repo que acabou de entrar no config.yaml (ou mudou de
+	// produto) ainda não tem nada no banco: para ele, este ciclo funciona
+	// como um primeiro sync, mesmo que os outros já estejam em dia.
+	produtosNovos, reposNovos := novosNoConfig(c.produtos, antes)
+
+	issuesNovas := c.coletarIssues(ctx, desde, produtosNovos, &resultado, anotarErro)
+	prsNovos := c.coletarPRs(ctx, desde, reposNovos, antes.PRs, &resultado, anotarErro)
 	resultado.Vinculos = calcularVinculos(antes, issuesNovas, prsNovos)
 
 	// Primeiro sync (nunca houve um bem-sucedido): só popular o banco, sem
-	// eventos. Senão a tela "o que mudou" viria com o projeto inteiro.
+	// eventos. Senão a tela "o que mudou" viria com o projeto inteiro. Pelo
+	// mesmo motivo, produtos e repos novos no config não geram eventos.
 	if desde != nil {
-		escopos := escoposDasIssues(resultado.Issues, antes.PRs, resultado.PRs, append(vinculosAntes, resultado.Vinculos...))
-		resultado.Eventos = GerarEventos(antes, resultado.Issues, resultado.PRs, escopos, inicio)
+		issues, prs := semNovos(resultado.Issues, resultado.PRs, produtosNovos, reposNovos)
+		escopos := escoposDasIssues(issues, antes.PRs, prs, append(vinculosAntes, resultado.Vinculos...))
+		resultado.Eventos = GerarEventos(antes, issues, prs, escopos, inicio)
 	}
 
 	return c.store.SalvarSync(ctx, resultado)
@@ -196,17 +204,23 @@ func escoposDasIssues(issues []store.Issue, prsAntes map[int64]store.PR, prsNovo
 
 // coletarIssues busca as issues de cada produto e as coloca em resultado.
 // Devolve as issues como vieram do Linear (com anexos), para o vínculo.
-func (c *Collector) coletarIssues(ctx context.Context, desde *time.Time, resultado *store.SyncResultado, anotarErro func(string, error)) []IssueRef {
+func (c *Collector) coletarIssues(ctx context.Context, desde *time.Time, produtosNovos map[string]bool, resultado *store.SyncResultado, anotarErro func(string, error)) []IssueRef {
 	var refs []IssueRef
 	for _, p := range c.produtos {
-		issues, err := c.linear.ListIssues(ctx, p.LinearProjectID, desde)
-		if err != nil {
-			anotarErro(p.Slug, err)
-			continue
+		desdeProduto := desde
+		if produtosNovos[p.Slug] {
+			desdeProduto = nil
 		}
-		for _, i := range issues {
-			resultado.Issues = append(resultado.Issues, issueParaStore(p.Slug, i))
-			refs = append(refs, IssueRef{ID: i.ID, Identifier: i.Identifier, Produto: p.Slug, AttachmentURLs: i.AttachmentURLs})
+		for _, projeto := range p.ProjetosLinear() {
+			issues, err := c.linear.ListIssues(ctx, projeto, desdeProduto)
+			if err != nil {
+				anotarErro(p.Slug, err)
+				continue
+			}
+			for _, i := range issues {
+				resultado.Issues = append(resultado.Issues, issueParaStore(p.Slug, i))
+				refs = append(refs, IssueRef{ID: i.ID, Identifier: i.Identifier, Produto: p.Slug, AttachmentURLs: i.AttachmentURLs})
+			}
 		}
 	}
 	return refs
@@ -215,18 +229,23 @@ func (c *Collector) coletarIssues(ctx context.Context, desde *time.Time, resulta
 // coletarPRs busca os PRs de cada repo configurado. Só para PRs novos ou
 // alterados (updated_at diferente do gravado) busca os arquivos e calcula
 // o risco: isso economiza chamadas à API, que tem limite por hora.
-func (c *Collector) coletarPRs(ctx context.Context, desde *time.Time, gravados map[int64]store.PR, resultado *store.SyncResultado, anotarErro func(string, error)) []PRRef {
+func (c *Collector) coletarPRs(ctx context.Context, desde *time.Time, reposNovos map[string]bool, gravados map[int64]store.PR, resultado *store.SyncResultado, anotarErro func(string, error)) []PRRef {
 	var refs []PRRef
 	for _, p := range c.produtos {
 		for _, e := range p.Escopos {
-			prs, err := c.buscarPRs(ctx, e.Repo, desde)
+			desdeRepo := desde
+			if reposNovos[chaveRepo(p.Slug, e.Repo)] {
+				desdeRepo = nil
+			}
+			prs, err := c.buscarPRs(ctx, e.Repo, desdeRepo)
 			if err != nil {
 				anotarErro(e.Repo, err)
 				continue
 			}
 			for _, pr := range prs {
-				if antigo, ok := gravados[pr.ID]; ok && antigo.UpdatedAt.Equal(pr.UpdatedAt) {
-					continue // nada mudou desde a última vez
+				if antigo, ok := gravados[pr.ID]; ok && antigo.UpdatedAt.Equal(pr.UpdatedAt) &&
+					antigo.ProductSlug == p.Slug && antigo.Scope == e.Nome {
+					continue // nada mudou desde a última vez (nem o lugar dele no config)
 				}
 				arquivos, err := c.github.ListArquivos(ctx, e.Repo, pr.Number)
 				if err != nil {
@@ -239,6 +258,57 @@ func (c *Collector) coletarPRs(ctx context.Context, desde *time.Time, gravados m
 		}
 	}
 	return refs
+}
+
+// novosNoConfig devolve os produtos sem nenhuma issue no banco e os repos
+// (por produto, ver chaveRepo) sem nenhum PR no banco. Um produto que
+// mudou de slug também conta como novo: as issues dele estão gravadas com o
+// slug antigo e precisam ser buscadas de novo para mudar de produto.
+func novosNoConfig(produtos []config.Produto, antes EstadoAnterior) (map[string]bool, map[string]bool) {
+	comIssues := map[string]bool{}
+	for _, i := range antes.Issues {
+		comIssues[i.ProductSlug] = true
+	}
+	comPRs := map[string]bool{}
+	for _, pr := range antes.PRs {
+		comPRs[chaveRepo(pr.ProductSlug, pr.Repo)] = true
+	}
+
+	produtosNovos, reposNovos := map[string]bool{}, map[string]bool{}
+	for _, p := range produtos {
+		if !comIssues[p.Slug] {
+			produtosNovos[p.Slug] = true
+		}
+		for _, e := range p.Escopos {
+			if k := chaveRepo(p.Slug, e.Repo); !comPRs[k] {
+				reposNovos[k] = true
+			}
+		}
+	}
+	return produtosNovos, reposNovos
+}
+
+// chaveRepo identifica um repo dentro de um produto. O GitHub não
+// diferencia maiúsculas no nome do repo, então comparamos em minúsculas.
+func chaveRepo(produto, repo string) string {
+	return produto + " " + strings.ToLower(repo)
+}
+
+// semNovos tira das listas o que veio de produtos e repos novos no config.
+func semNovos(issues []store.Issue, prs []store.PR, produtosNovos, reposNovos map[string]bool) ([]store.Issue, []store.PR) {
+	var is []store.Issue
+	for _, i := range issues {
+		if !produtosNovos[i.ProductSlug] {
+			is = append(is, i)
+		}
+	}
+	var ps []store.PR
+	for _, pr := range prs {
+		if !reposNovos[chaveRepo(pr.ProductSlug, pr.Repo)] {
+			ps = append(ps, pr)
+		}
+	}
+	return is, ps
 }
 
 // buscarPRs traz os PRs alterados desde o último sync. No primeiro sync

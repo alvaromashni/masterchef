@@ -52,12 +52,30 @@ type Config struct {
 	GitHubToken  string        `yaml:"-"`
 }
 
-// Produto é uma linha da matriz.
+// Produto é uma linha da matriz e um projeto na tela "Projetos".
 type Produto struct {
-	Nome            string  `yaml:"nome"`
-	Slug            string  `yaml:"slug"`
-	LinearProjectID string  `yaml:"linear_project_id"`
-	Escopos         Escopos `yaml:"escopos"`
+	Nome            string `yaml:"nome"`
+	Slug            string `yaml:"slug"`
+	LinearProjectID string `yaml:"linear_project_id"`
+	// LinearProjectIDs serve para um projeto que no Linear está dividido em
+	// vários projetos (ex.: Nawat = nawat-api + nawat-android). Pode ser
+	// usado junto com linear_project_id; o painel junta os dois.
+	LinearProjectIDs []string `yaml:"linear_project_ids"`
+	Escopos          Escopos  `yaml:"escopos"`
+}
+
+// ProjetosLinear devolve todos os projetos do Linear do produto, sem repetir.
+func (p Produto) ProjetosLinear() []string {
+	var ids []string
+	vistos := map[string]bool{}
+	for _, id := range append([]string{p.LinearProjectID}, p.LinearProjectIDs...) {
+		id = strings.TrimSpace(id)
+		if id != "" && !vistos[id] {
+			vistos[id] = true
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }
 
 // Escopo liga um nome de escopo (api, front...) a um repositório GitHub.
@@ -228,8 +246,8 @@ func (c *Config) validateProdutos() []error {
 		}
 		slugsVistos[p.Slug] = true
 
-		if strings.TrimSpace(p.LinearProjectID) == "" {
-			add("%s: linear_project_id é obrigatório", ref)
+		if len(p.ProjetosLinear()) == 0 {
+			add("%s: linear_project_id (ou linear_project_ids) é obrigatório", ref)
 		}
 
 		if len(p.Escopos) == 0 {

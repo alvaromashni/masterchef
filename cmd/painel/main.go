@@ -18,6 +18,7 @@ import (
 
 	"github.com/alvaromashni/masterchef/internal/collector"
 	"github.com/alvaromashni/masterchef/internal/config"
+	"github.com/alvaromashni/masterchef/internal/contexto"
 	"github.com/alvaromashni/masterchef/internal/github"
 	"github.com/alvaromashni/masterchef/internal/linear"
 	"github.com/alvaromashni/masterchef/internal/store"
@@ -52,7 +53,10 @@ func run(logger *slog.Logger) error {
 	}
 	defer st.Close()
 
-	srv, err := web.New(cfg, st, logger)
+	// Um cliente do GitHub só para a página do projeto (pasta docs/ dos
+	// repos), separado do que o coletor usa em paralelo.
+	docs := contexto.NewLeitor(github.New(cfg.GitHubToken, "", logger))
+	srv, err := web.New(cfg, st, docs, logger)
 	if err != nil {
 		return err
 	}

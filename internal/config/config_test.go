@@ -159,7 +159,7 @@ func TestParse_ConfigInvalida(t *testing.T) {
 			nome:       "linear_project_id ausente",
 			trocar:     `linear_project_id: "uuid-y"`,
 			por:        "",
-			erroContem: "linear_project_id é obrigatório",
+			erroContem: "linear_project_id (ou linear_project_ids) é obrigatório",
 		},
 		{
 			nome:       "chave desconhecida (erro de digitação)",
@@ -246,5 +246,16 @@ func TestExpandHome(t *testing.T) {
 		if got != esperado {
 			t.Errorf("expandHome(%q) = %q, esperava %q", entrada, got, esperado)
 		}
+	}
+}
+
+func TestProjetosLinear_JuntaOsDoisCamposSemRepetir(t *testing.T) {
+	p := Produto{LinearProjectID: "a", LinearProjectIDs: []string{"b", " a ", "", "c"}}
+	got := p.ProjetosLinear()
+	if len(got) != 3 || got[0] != "a" || got[1] != "b" || got[2] != "c" {
+		t.Fatalf("ProjetosLinear = %v", got)
+	}
+	if got := (Produto{LinearProjectIDs: []string{"x"}}).ProjetosLinear(); len(got) != 1 || got[0] != "x" {
+		t.Fatalf("só linear_project_ids: %v", got)
 	}
 }

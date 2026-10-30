@@ -13,6 +13,14 @@ a visão completa e as regras do projeto.
 
 ## Telas
 
+- **`/projetos` Projetos**: um projeto por produto do `config.yaml`, com a barra de
+  progresso do roadmap (issues concluídas sobre o total, sem as canceladas).
+- **`/p/<produto>` Projeto**: o roadmap (issues do Linear em Em andamento, A fazer e
+  Feito) e o contexto: os Markdown da pasta `docs/` de cada repo do projeto, lidos
+  pela API do GitHub na branch principal e guardados em memória por 5 minutos.
+  `/p/<produto>/docs/<escopo>/<caminho>` mostra um documento; links relativos entre
+  documentos viram links do painel. Um produto pode juntar vários projetos do Linear
+  com `linear_project_ids`.
 - **`/` Matriz**: produto × escopo. Cada célula mostra issues em andamento, PRs
   aguardando review (abertos e não rascunho), quantos desses têm risco alto (marca
   vermelha) e há quanto tempo foi a última atividade. Células sem atividade há mais

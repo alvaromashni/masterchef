@@ -14,6 +14,7 @@
     <div class="topo-dentro">
       <a class="marca" href="/">masterchef</a>
       <nav class="abas" aria-label="Telas">
+        <a class="aba" href="/projetos"{{if eq .Secao "projetos"}} aria-current="page"{{end}}>Projetos</a>
         <a class="aba" href="/"{{if eq .Secao "matriz"}} aria-current="page"{{end}}>Matriz</a>
         <a class="aba" href="/mudancas"{{if eq .Secao "mudancas"}} aria-current="page"{{end}}>O que mudou{{if .NaoVistos}} <span class="contador novo" title="Mudanças não vistas">{{.NaoVistos}}</span>{{end}}</a>
         <a class="aba" href="/prs"{{if eq .Secao "prs"}} aria-current="page"{{end}}>Fila de review{{if .NaFila}} <span class="contador" title="PRs aguardando review">{{.NaFila}}</span>{{end}}</a>
