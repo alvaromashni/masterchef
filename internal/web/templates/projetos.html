@@ -7,21 +7,32 @@
 </div>
 <div class="projetos">
   {{range .}}
-  <a class="projeto-linha" href="/p/{{.Produto.Slug}}">
-    <span class="projeto-nome">
-      <span class="nome">{{.Produto.Nome}}</span>
-      <span class="meta">{{range $i, $e := .Produto.Escopos}}{{if $i}} · {{end}}{{$e.Nome}}{{end}}</span>
-    </span>
-    <span class="progresso" title="{{len .Roadmap.Feito}} de {{.Roadmap.Total}} issues concluídas">
-      <span class="barra"><span style="width: {{.Roadmap.Percentual}}%"></span></span>
-      <span class="meta">{{.Roadmap.Percentual}}% feito</span>
-    </span>
-    <span class="numeros-projeto">
-      <span><b>{{len .Roadmap.EmAndamento}}</b> em andamento</span>
-      <span><b>{{len .Roadmap.AFazer}}</b> a fazer</span>
-      <span><b>{{len .Roadmap.Feito}}</b> {{plural (len .Roadmap.Feito) "feita" "feitas"}}</span>
-    </span>
-  </a>
+  <section class="projeto-bloco">
+    <a class="projeto-topo" href="/p/{{.Produto.Slug}}">
+      <span class="projeto-nome">
+        <span class="nome">{{.Produto.Nome}}</span>
+        <span class="meta">{{range $i, $e := .Produto.Escopos}}{{if $i}} · {{end}}{{$e.Nome}}{{end}}</span>
+      </span>
+      <span class="projeto-pct"><span class="valor">{{.Roadmap.Percentual}}%</span><span class="nome">feito</span></span>
+      <span class="projeto-progresso">
+        {{template "barra-roadmap" .Roadmap}}
+        {{template "legenda-roadmap" .Roadmap}}
+      </span>
+      <span class="meta projeto-atividade">{{if .Roadmap.UltimaAtividade.IsZero}}sem issues ainda{{else}}atividade {{haQuanto .Roadmap.UltimaAtividade}}{{end}}</span>
+    </a>
+    {{with .Roadmap.Agora}}
+    <div class="projeto-agora">
+      <div class="rotulo">Em andamento agora</div>
+      {{range .}}
+      <a class="agora-linha" href="{{.URL}}" target="_blank" rel="noopener">
+        <span class="id">{{.Identifier}}</span>
+        <span class="t">{{.Title}}{{range .Escopos}} <span class="etiqueta">{{.}}</span>{{end}}</span>
+        <span class="meta">{{haQuanto .UpdatedAt}}</span>
+      </a>
+      {{end}}
+    </div>
+    {{end}}
+  </section>
   {{end}}
 </div>
 {{end}}

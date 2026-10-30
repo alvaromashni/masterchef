@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/alvaromashni/masterchef/internal/config"
 	"github.com/alvaromashni/masterchef/internal/contexto"
@@ -26,7 +27,36 @@ type Roadmap struct {
 
 	Total      int // sem as canceladas
 	Percentual int // feitas / total, de 0 a 100
+
+	// UltimaAtividade é a atualização mais recente entre as issues (zero = nenhuma).
+	UltimaAtividade time.Time
 }
+
+// Parte é um pedaço da barra de progresso: as issues de uma coluna do roadmap.
+type Parte struct {
+	Nome       string // "Feito", "Em andamento", "A fazer"
+	Classe     string // classe CSS que dá o tom de cinza
+	Quantidade int
+	Percentual int // da barra inteira, arredondado
+}
+
+// Partes devolve as três partes da barra na ordem de leitura (feito primeiro).
+func (r Roadmap) Partes() []Parte {
+	partes := []Parte{
+		{Nome: "Feito", Classe: "feito", Quantidade: len(r.Feito)},
+		{Nome: "Em andamento", Classe: "andamento", Quantidade: len(r.EmAndamento)},
+		{Nome: "A fazer", Classe: "afazer", Quantidade: len(r.AFazer)},
+	}
+	for i := range partes {
+		if r.Total > 0 {
+			partes[i].Percentual = (partes[i].Quantidade*100 + r.Total/2) / r.Total
+		}
+	}
+	return partes
+}
+
+// Agora são as primeiras issues em andamento, para a lista de projetos.
+func (r Roadmap) Agora() []ItemRoadmap { return r.EmAndamento[:min(len(r.EmAndamento), 3)] }
 
 // ItemRoadmap é uma issue com os escopos (repos) em que ela cai.
 type ItemRoadmap struct {
@@ -54,6 +84,9 @@ func montarRoadmap(p config.Produto, d dadosPainel) Roadmap {
 			}
 		}
 		r.Total++
+		if i.UpdatedAt.After(r.UltimaAtividade) {
+			r.UltimaAtividade = i.UpdatedAt
+		}
 		switch i.StateType {
 		case "completed":
 			r.Feito = append(r.Feito, item)

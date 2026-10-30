@@ -14,3 +14,18 @@
   {{end}}
 </div>
 {{end}}
+
+{{/* Barra de progresso do roadmap em três partes (feito, em andamento, a
+     fazer). Recebe o Roadmap. A largura de cada parte é proporcional à
+     quantidade (flex-grow); uma parte vazia não é desenhada. */}}
+{{define "barra-roadmap"}}
+<div class="barra-partes" role="img" aria-label="{{range $i, $p := .Partes}}{{if $i}}, {{end}}{{$p.Nome}}: {{$p.Quantidade}} ({{$p.Percentual}}%){{end}}">
+  {{range .Partes}}{{if .Quantidade}}<span class="parte {{.Classe}}" style="flex-grow: {{.Quantidade}}" title="{{.Nome}}: {{.Quantidade}} ({{.Percentual}}%)">{{if ge .Percentual 12}}<span class="parte-valor">{{.Percentual}}%</span>{{end}}</span>{{end}}{{end}}
+</div>
+{{end}}
+
+{{define "legenda-roadmap"}}
+<div class="legenda-partes">
+  {{range .Partes}}<span><i class="amostra-parte {{.Classe}}"></i>{{.Nome}} <b>{{.Quantidade}}</b></span>{{end}}
+</div>
+{{end}}
