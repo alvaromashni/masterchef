@@ -327,24 +327,100 @@ h2 { margin: 0; font-size: 15px; font-weight: 600; }
 
 /* ---------- Projetos ---------- */
 
+/* Barra de progresso em três partes: um todo dividido, sem eixo. Tons de
+   cinza do mesmo sistema (feito = tinta, em andamento = médio, a fazer =
+   claro), 2px de fundo entre as partes e pontas arredondadas. */
+.barra-partes { display: flex; gap: 2px; height: 8px; min-width: 0; }
+.parte { display: flex; align-items: center; min-width: 4px; border-radius: 999px; }
+.parte.feito, .amostra-parte.feito { background: var(--ink); }
+.parte.andamento, .amostra-parte.andamento { background: var(--ink-3); }
+.parte.afazer, .amostra-parte.afazer { background: var(--border); }
+.parte-valor { display: none; }
+.legenda-partes { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--ink-2); }
+.legenda-partes span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.legenda-partes b { font-weight: 500; color: var(--ink); }
+.amostra-parte { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 2px; }
+
 .projetos { border-top: 1px solid var(--ink); }
-.projeto-linha {
-  display: grid; grid-template-columns: minmax(180px, 1fr) minmax(160px, 260px) 340px; gap: 12px 40px; align-items: center;
-  padding: 18px 4px; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none;
+.projeto-bloco { border-bottom: 1px solid var(--line); }
+.projeto-topo {
+  display: grid; grid-template-columns: minmax(160px, 1fr) 88px minmax(240px, 420px) 150px; gap: 12px 32px; align-items: center;
+  padding: 22px 4px 18px; color: var(--ink); text-decoration: none;
 }
-.projeto-linha:hover { background: var(--hover); }
+.projeto-topo:hover { background: var(--hover); }
 .projeto-nome { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.projeto-nome .nome { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
-.progresso { display: flex; align-items: center; gap: 12px; }
-.barra { flex: 1; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
-.barra span { display: block; height: 100%; background: var(--ink); }
-.numeros-projeto { display: flex; justify-content: flex-end; gap: 20px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
-.numeros-projeto b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.projeto-nome .nome { font-size: 19px; font-weight: 600; letter-spacing: -0.015em; }
+.projeto-pct { display: flex; flex-direction: column; }
+.projeto-pct .valor { font-size: 30px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; }
+.projeto-pct .nome { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+.projeto-progresso { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.projeto-atividade { text-align: right; }
+.projeto-agora { padding: 0 4px 18px; display: flex; flex-direction: column; }
+.projeto-agora .rotulo { margin-bottom: 4px; }
+.agora-linha {
+  display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 12px; align-items: baseline;
+  padding: 6px 0; border-top: 1px solid var(--line-2); color: var(--ink); text-decoration: none;
+}
+.agora-linha:hover { background: var(--hover); }
+.agora-linha .id { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.agora-linha .t { font-size: 14px; }
+.agora-linha .meta { font-size: 11px; }
+
+.projeto-cabecalho { align-items: flex-start; }
+.projeto-cabecalho h1 { font-size: 30px; letter-spacing: -0.025em; }
+.projeto-repos { margin: 6px 0 0; color: var(--ink-2); overflow-wrap: anywhere; }
+.projeto-links { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 12px; font-size: 13px; }
+.projeto-links a { color: var(--ink-2); }
+.projeto-links a:hover { color: var(--ink); }
+
+/* Resumo: o número de destaque da página (um só por tela) e a barra alta. */
+.resumo-projeto {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px 48px; align-items: center;
+  padding: 28px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.destaque { display: flex; flex-direction: column; gap: 6px; }
+.destaque-valor { font-size: 56px; font-weight: 500; letter-spacing: -0.04em; line-height: 1; }
+.destaque-nome { font-size: 13px; color: var(--ink-2); }
+.resumo-barra { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.barra-alta .barra-partes { height: 28px; }
+.barra-alta .parte { border-radius: 4px; }
+.barra-alta .parte-valor { display: block; padding: 0 8px; font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+.barra-alta .parte.feito .parte-valor, .barra-alta .parte.andamento .parte-valor { color: #fff; }
+.barra-alta .parte.afazer .parte-valor { color: var(--ink); }
+.resumo-pe { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; }
+
+.secao-projeto { margin-top: 44px; }
+
+/* Roadmap em três colunas, como um quadro. */
+.roadmap { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 32px; align-items: start; }
+.roadmap-coluna { display: flex; flex-direction: column; min-width: 0; }
+.roadmap-cabeca {
+  display: flex; align-items: center; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--ink);
+  font-size: 14px; font-weight: 600;
+}
+.roadmap-cabeca .meta { margin-left: auto; font-weight: 400; }
+.roadmap .vazio { margin: 10px 0 0; font-size: 13px; }
+/* Sem cartões (princípio 03 do /guia): cada issue é uma linha com divisória. */
+.cartao-issue {
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 2px;
+  border-bottom: 1px solid var(--line-2); color: var(--ink); text-decoration: none;
+}
+.cartao-issue:hover { background: var(--hover); }
+.cartao-topo { display: flex; justify-content: space-between; gap: 8px; }
+.cartao-topo .id { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.cartao-topo .meta { font-size: 11px; }
+.cartao-issue .t { font-size: 14px; line-height: 1.4; text-wrap: pretty; }
+.cartao-pe { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cartao-pe .estado { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.mais-feitas { display: flex; flex-direction: column; }
+.mais-feitas summary { cursor: pointer; padding: 6px 0; font-size: 13px; color: var(--ink-2); }
+.mais-feitas summary:hover { color: var(--ink); }
+
+.contexto-grade .indice-docs { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 28px 40px; align-items: start; }
+
 .matriz-produto a.nome { align-self: auto; font-size: 16px; color: var(--ink); }
 
 .etiqueta { font-family: var(--mono); font-size: 11px; color: var(--ink-3); padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; white-space: nowrap; }
-.mais-feitas summary { cursor: pointer; padding: 10px 0 4px; font-size: 13px; color: var(--ink-2); }
-.mais-feitas summary:hover { color: var(--ink); }
 
 .indice-docs { display: flex; flex-direction: column; gap: 22px; }
 .repo-docs { display: flex; flex-direction: column; }
@@ -422,8 +498,12 @@ h2 { margin: 0; font-size: 15px; font-weight: 600; }
   .evento-linha .ref { grid-column: 1; }
   .evento-linha .resumo { grid-column: 2; }
   .grupo-escopo { grid-template-columns: 1fr; }
-  .projeto-linha { grid-template-columns: 1fr; }
-  .numeros-projeto { flex-wrap: wrap; gap: 6px 16px; }
+  .projeto-topo { grid-template-columns: 1fr auto; }
+  .projeto-progresso, .projeto-atividade { grid-column: 1 / -1; }
+  .projeto-atividade { text-align: left; }
+  .resumo-projeto { grid-template-columns: 1fr; }
+  .roadmap { grid-template-columns: 1fr; gap: 32px; }
+  .destaque-valor { font-size: 48px; }
   .fila summary { grid-template-columns: 64px minmax(0, 1fr) 16px; }
   .fila summary .issue, .fila summary .diff, .fila summary .idade { display: none; }
   .fila-detalhe { padding: 4px 4px 24px; }

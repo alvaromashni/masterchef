@@ -94,7 +94,7 @@ func TestListIssues_Paginacao(t *testing.T) {
 func TestListIssues_Filtros(t *testing.T) {
 	t.Run("primeiro sync exclui canceladas e não filtra data", func(t *testing.T) {
 		srv, reqs, _ := servidorFalso(t, "issues_pagina2.json")
-		if _, err := New("k", srv.URL).ListIssues(context.Background(), "proj-1", nil); err != nil {
+		if _, err := New("k", srv.URL).ListIssues(context.Background(), "nawat-api-04081631749b", nil); err != nil {
 			t.Fatal(err)
 		}
 		filtro, _ := json.Marshal((*reqs)[0].Variables["filter"])
@@ -104,7 +104,7 @@ func TestListIssues_Filtros(t *testing.T) {
 		if strings.Contains(string(filtro), "updatedAt") {
 			t.Errorf("primeiro sync não deveria filtrar por data: %s", filtro)
 		}
-		if !strings.Contains(string(filtro), `"eq":"proj-1"`) {
+		if !strings.Contains(string(filtro), `"project":{"slugId":{"eq":"04081631749b"}}`) {
 			t.Errorf("filtro deveria ter o projeto: %s", filtro)
 		}
 	})
@@ -142,5 +142,66 @@ func TestListIssues_ErroHTTP(t *testing.T) {
 	_, err := New("k", srv.URL).ListIssues(context.Background(), "proj-1", nil)
 	if err == nil || !strings.Contains(err.Error(), "HTTP 401") {
 		t.Fatalf("esperava erro HTTP 401, veio: %v", err)
+	}
+}
+
+func TestFiltroProjeto_UUIDOuPedacoDaURL(t *testing.T) {
+	casos := []struct {
+		entrada, campo, valor string
+	}{
+		{"3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b", "id", "3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b"},
+		{"nawat-api-04081631749b", "slugId", "04081631749b"},
+		{" smart-pay-app-033c97eaaea9 ", "slugId", "033c97eaaea9"},
+		{"04081631749b", "slugId", "04081631749b"},
+	}
+	for _, c := range casos {
+		f := filtroProjeto(c.entrada)
+		comparador, ok := f[c.campo].(map[string]any)
+		if !ok || len(f) != 1 || comparador["eq"] != c.valor {
+			t.Errorf("filtroProjeto(%q) = %v, esperava %s eq %s", c.entrada, f, c.campo, c.valor)
+		}
+	}
+}
+
+func TestConsultar_TentaDeNovoQuandoDemoraOuDa5xx(t *testing.T) {
+	pagina, err := os.ReadFile(filepath.Join("testdata", "issues_pagina2.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	chamadas := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		chamadas++
+		switch chamadas {
+		case 1:
+			time.Sleep(300 * time.Millisecond) // passa do tempo limite do cliente
+		case 2:
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		w.Write(pagina)
+	}))
+	t.Cleanup(srv.Close)
+
+	c := New("k", srv.URL)
+	c.http.Timeout = 100 * time.Millisecond
+	if _, err := c.ListIssues(context.Background(), "proj", nil); err != nil {
+		t.Fatalf("esperava sucesso na 3ª tentativa: %v", err)
+	}
+	if chamadas != 3 {
+		t.Fatalf("chamadas = %d, esperava 3", chamadas)
+	}
+}
+
+func TestConsultar_DesisteDepoisDasTentativas(t *testing.T) {
+	chamadas := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		chamadas++
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(srv.Close)
+
+	_, err := New("k", srv.URL).ListIssues(context.Background(), "proj", nil)
+	if err == nil || !strings.Contains(err.Error(), "HTTP 503") || chamadas != tentativas {
+		t.Fatalf("err=%v chamadas=%d", err, chamadas)
 	}
 }

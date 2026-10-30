@@ -11,7 +11,9 @@ stale_after: 72h          # célula sem atividade há mais que isso fica "parada
 produtos:
   - nome: Produto X
     slug: produto-x                        # minúsculas, números e hífens; aparece nas URLs
-    linear_project_id: "uuid-do-projeto-no-linear"
+    # UUID do projeto ou o final da URL dele no Linear
+    # (linear.app/<time>/project/produto-x-04081631749b -> "produto-x-04081631749b").
+    linear_project_id: "produto-x-04081631749b"
     # Projeto dividido em vários projetos no Linear? Liste os outros aqui;
     # o roadmap junta as issues de todos.
     # linear_project_ids: ["uuid-de-outro-projeto"]
